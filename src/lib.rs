@@ -1,16 +1,22 @@
 
-struct Error {
+pub mod pop;
+
+pub enum Error {
+    Population(pop::Error),
 }
 
-struct Algorithm {
-    
+pub struct Algorithm {
+
 }
 
 impl Algorithm {
-    fn new() -> Algorithm {
+    pub fn new() -> Algorithm {
+        Algorithm {
+        }
     }
 
-    fn run() -> Result<(), Error> {
+    pub fn run() -> Result<(), Error> {
+        Ok(())
     }
 }
 
