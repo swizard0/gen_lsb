@@ -7,5 +7,6 @@ pub trait PopulationManager {
     type IM: IndividualManager;
     type E;
 
-    fn init(&mut self, &mut Self::IM) -> Result<Self::P, Self::E>;
+    fn make_individual_manager(&self) -> Result<Self::IM, Self::E>;
+    fn init(&self, &mut Self::IM) -> Result<Self::P, Self::E>;
 }
