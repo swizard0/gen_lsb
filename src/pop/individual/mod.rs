@@ -1,5 +1,6 @@
 
 pub mod chromosome;
+pub mod manager;
 use self::chromosome::Chromosome;
 
 pub trait Individual {
