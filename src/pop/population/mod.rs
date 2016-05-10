@@ -4,9 +4,9 @@ pub mod vec;
 
 use super::individual::Individual;
 
-pub trait Population {
+pub trait Population: Sync + Send {
     type I: Individual;
-    type E;
+    type E: Sync + Send;
 
     fn size(&self) -> usize;
     fn get(&self, index: usize) -> Result<&Self::I, Self::E>;

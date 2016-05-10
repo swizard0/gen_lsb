@@ -1,4 +1,4 @@
 
-pub trait Chromosome {
-    type E;
+pub trait Chromosome: Sync + Send {
+    type E: Sync + Send;
 }
