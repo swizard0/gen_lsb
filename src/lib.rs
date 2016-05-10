@@ -3,6 +3,7 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::clone::Clone;
 
 pub mod pop;
 
@@ -44,15 +45,26 @@ enum Command<AL> where AL: AlgorithmLayout {
     Stop,
 }
 
+impl<AL> Clone for Command<AL> where AL: AlgorithmLayout {
+    fn clone(&self) -> Self {
+        match *self {
+            Command::PopulationInitialize(ref population_manager, ref sync_counter) =>
+                Command::PopulationInitialize(population_manager.clone(), sync_counter.clone()),
+            Command::Stop =>
+                Command::Stop,
+        }
+    }
+}
+
 enum Report<AL> where AL: AlgorithmLayout {
-    PopulationInitialized(Result<AL::P, Error<AL::EL>>),
+    PopulationInitialized(AL::P),
     StopAck,
 }
 
 struct Slave<AL> where AL: AlgorithmLayout {
     thread: Option<thread::JoinHandle<()>>,
     tx: Sender<Command<AL>>,
-    rx: Receiver<Report<AL>>,
+    rx: Receiver<Result<Report<AL>, Error<AL::EL>>>,
 }
 
 impl<AL> Slave<AL> where AL: AlgorithmLayout {
@@ -76,24 +88,29 @@ impl<AL> Drop for Slave<AL> where AL: AlgorithmLayout {
             self.tx.send(Command::Stop).unwrap();
             loop {
                 match self.rx.recv().unwrap() {
-                    Report::StopAck => break,
-                    _ => continue,
+                    Ok(Report::StopAck) => {
+                        thread.join().unwrap();
+                        break;
+                    },
+                    Ok(_) =>
+                        continue,
+                    Err(_err) =>
+                        unreachable!(),
                 }
             }
-            thread.join().unwrap();
         }
     }
 }
 
-fn slave_loop<AL>(rx: Receiver<Command<AL>>, tx: Sender<Report<AL>>) where AL: AlgorithmLayout {
+fn slave_loop<AL>(rx: Receiver<Command<AL>>, tx: Sender<Result<Report<AL>, Error<AL::EL>>>) where AL: AlgorithmLayout {
     loop {
         match rx.recv().unwrap() {
             Command::PopulationInitialize(population_manager, sync_counter) => {
                 let result = slave_population_init::<AL>(population_manager, sync_counter);
-                tx.send(Report::PopulationInitialized(result));
+                tx.send(result.map(|r| Report::PopulationInitialized(r))).unwrap();
             },
             Command::Stop => {
-                tx.send(Report::StopAck).unwrap();
+                tx.send(Ok(Report::StopAck)).unwrap();
                 break;
             },
         }
@@ -128,12 +145,18 @@ impl<AL> Algorithm<AL> where AL: AlgorithmLayout {
     }
 
     pub fn run(&mut self) -> Result<RunResult<AL::I>, Error<AL::EL>> {
-        let mut individual_manager =
-            try!(self.population_manager.make_individual_manager().map_err(|e| Error::PopulationManager(e)));
-        let mut _population =
-            try!(self.population_manager.init(&mut individual_manager, Arc::new(AtomicUsize::new(0))).map_err(|e| Error::PopulationManager(e)));
+        let init_command =
+            Command::PopulationInitialize(self.population_manager.clone(), Arc::new(AtomicUsize::new(0)));
+        let _population_parts = try!(self.spread_sync(init_command));
 
         Ok(RunResult::PopLimitExceeded)
+    }
+
+    fn spread_sync(&self, cmd: Command<AL>) -> Result<Vec<Report<AL>>, Error<AL::EL>> {
+        for slave in self.slaves.iter() {
+            slave.tx.send(cmd.clone()).unwrap();
+        }
+        self.slaves.iter().map(|s| s.rx.recv().unwrap()).collect()
     }
 }
 
