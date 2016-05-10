@@ -68,6 +68,9 @@ mod tests {
         assert_eq!(pop.get(0), Ok(&TestI(TestC(0))));
         assert_eq!(pop.get(1), Ok(&TestI(TestC(1))));
         assert_eq!(pop.get(2), Err(Error::IndexOutOfRange { index: 2, total: 2, }));
+        assert_eq!(pop.del(0), Ok(TestI(TestC(0))));
+        assert_eq!(pop.size(), 1);
+        assert_eq!(pop.get(0), Ok(&TestI(TestC(1))));
     }
 
     #[test]
