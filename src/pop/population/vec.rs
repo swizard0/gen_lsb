@@ -32,6 +32,11 @@ impl<T> Population for Vec<T> where T: Individual {
             Err(Error::IndexOutOfRange { index: index, total: self.len(), })
         }
     }
+
+    fn merge(mut self, other: Self) -> Result<Self, Self::E> {
+        self.extend(other.into_iter());
+        Ok(self)
+    }
 }
 
 #[cfg(test)]
@@ -76,5 +81,15 @@ mod tests {
     #[test]
     fn basic() {
         run_basic(Vec::new());
+    }
+
+    #[test]
+    fn merge() {
+        let v1 = vec![TestI(TestC(1)), TestI(TestC(2)), TestI(TestC(3))];
+        let v2 = vec![TestI(TestC(4)), TestI(TestC(5))];
+        assert_eq!(Population::merge_many(vec![v1, v2].into_iter()),
+                   Ok(Some(vec![TestI(TestC(1)), TestI(TestC(2)), TestI(TestC(3)), TestI(TestC(4)), TestI(TestC(5))])));
+        let empty: Vec<Vec<TestI>> = vec![];
+        assert_eq!(Population::merge_many(empty.into_iter()), Ok(None));
     }
 }
