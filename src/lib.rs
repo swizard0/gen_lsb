@@ -38,6 +38,8 @@ pub enum Error<EL> where EL: ErrorsLayout {
     IndividualManager(EL::IME),
     Population(EL::PE),
     PopulationManager(EL::PME),
+    UnexpectedEmptyPopulation,
+    Several(Vec<Error<EL>>),
 }
 
 enum Command<AL> where AL: AlgorithmLayout {
@@ -61,10 +63,20 @@ enum Report<AL> where AL: AlgorithmLayout {
     StopAck,
 }
 
+impl<AL> Report<AL> where AL: AlgorithmLayout {
+    fn population_results(self) -> AL::P {
+        match self {
+            Report::PopulationInitialized(population) => population,
+            _ => unreachable!(),
+        }
+    }
+}
+
 struct Slave<AL> where AL: AlgorithmLayout {
     thread: Option<thread::JoinHandle<()>>,
     tx: Sender<Command<AL>>,
     rx: Receiver<Result<Report<AL>, Error<AL::EL>>>,
+    last_report: Option<Report<AL>>,
 }
 
 impl<AL> Slave<AL> where AL: AlgorithmLayout {
@@ -78,6 +90,7 @@ impl<AL> Slave<AL> where AL: AlgorithmLayout {
             thread: Some(try!(maybe_thread)),
             tx: master_tx,
             rx: master_rx,
+            last_report: None,
         })
     }
 }
@@ -145,18 +158,38 @@ impl<AL> Algorithm<AL> where AL: AlgorithmLayout {
     }
 
     pub fn run(&mut self) -> Result<RunResult<AL::I>, Error<AL::EL>> {
-        let init_command =
-            Command::PopulationInitialize(self.population_manager.clone(), Arc::new(AtomicUsize::new(0)));
-        let _population_parts = try!(self.spread_sync(init_command));
+        let _population = self.population_initialize();
 
         Ok(RunResult::PopLimitExceeded)
     }
 
-    fn spread_sync(&self, cmd: Command<AL>) -> Result<Vec<Report<AL>>, Error<AL::EL>> {
+    pub fn population_initialize(&mut self) -> Result<AL::P, Error<AL::EL>> {
+        let init_command =
+            Command::PopulationInitialize(self.population_manager.clone(), Arc::new(AtomicUsize::new(0)));
+        try!(self.spread_sync(init_command));
+        let maybe_population =
+            Population::merge_many(self.slaves.iter_mut().flat_map(|s| s.last_report.take()).map(|r| r.population_results()));
+        try!(maybe_population.map_err(|e| Error::Population(e))).ok_or(Error::UnexpectedEmptyPopulation)
+    }
+
+    fn spread_sync(&mut self, cmd: Command<AL>) -> Result<(), Error<AL::EL>> {
         for slave in self.slaves.iter() {
             slave.tx.send(cmd.clone()).unwrap();
         }
-        self.slaves.iter().map(|s| s.rx.recv().unwrap()).collect()
+        let mut errors = Vec::new();
+        for slave in self.slaves.iter_mut() {
+            match slave.rx.recv().unwrap() {
+                Ok(r) =>
+                    slave.last_report = Some(r),
+                Err(e) =>
+                    errors.push(e),
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::Several(errors))
+        }
     }
 }
 
