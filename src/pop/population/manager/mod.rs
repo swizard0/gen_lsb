@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use super::Population;
+use super::super::super::set::Set;
+use super::super::individual::Individual;
 use super::super::individual::manager::IndividualManager;
 
 pub mod simple;
@@ -15,8 +16,9 @@ pub trait PopulationManager: Sync + Send {
 }
 
 pub trait PopulationJobs {
-    type P: Population;
-    type IM: IndividualManager;
+    type I: Individual;
+    type P: Set<T = Self::I>;
+    type IM: IndividualManager<I = Self::I>;
     type E: Sync + Send;
 
     fn init(&self, individual_manager: &mut Self::IM, sync_counter: Arc<AtomicUsize>) -> Result<Self::P, Self::E>;

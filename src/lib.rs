@@ -6,8 +6,9 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::clone::Clone;
 
 pub mod pop;
+pub mod set;
 
-use pop::population::Population;
+use set::Set;
 use pop::population::manager::{PopulationManager, PopulationJobs};
 use pop::individual::Individual;
 use pop::individual::manager::IndividualManager;
@@ -27,8 +28,8 @@ pub trait AlgorithmLayout: 'static {
     type C: Chromosome<E = <Self::EL as ErrorsLayout>::CE>;
     type I: Individual<C = Self::C, E = <Self::EL as ErrorsLayout>::IE>;
     type IM: IndividualManager<I = Self::I, E = <Self::EL as ErrorsLayout>::IME>;
-    type P: Population<I = Self::I, E = <Self::EL as ErrorsLayout>::PE>;
-    type PJ: PopulationJobs<P = Self::P, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PJE>;
+    type P: Set<T = Self::I, E = <Self::EL as ErrorsLayout>::PE>;
+    type PJ: PopulationJobs<I = Self::I, P = Self::P, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PJE>;
     type PM: PopulationManager<PJ = Self::PJ, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PME>;
 }
 
@@ -171,7 +172,7 @@ impl<AL> Algorithm<AL> where AL: AlgorithmLayout {
             Command::PopulationInitialize(self.population_manager.clone(), Arc::new(AtomicUsize::new(0)));
         try!(self.spread_sync(init_command));
         let maybe_population =
-            Population::merge_many(self.slaves.iter_mut().flat_map(|s| s.last_report.take()).map(|r| r.population_results()));
+            Set::merge_many(self.slaves.iter_mut().flat_map(|s| s.last_report.take()).map(|r| r.population_results()));
         try!(maybe_population.map_err(|e| Error::Population(e))).ok_or(Error::UnexpectedEmptyPopulation)
     }
 

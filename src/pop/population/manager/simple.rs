@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::marker::PhantomData;
 use super::PopulationJobs;
-use super::super::{Population, PopulationEmpty};
+use super::super::super::super::set::{Set, SetEmpty};
 use super::super::super::individual::Individual;
 use super::super::super::individual::manager::IndividualManager;
 
@@ -29,9 +29,10 @@ pub enum Error<PE, IME> {
 impl<I, P, IM, PE> PopulationJobs for SimplePopulationJobs<P, IM> where
     I: Individual,
     IM: IndividualManager<I = I>,
-    P: Population<I = I, E = PE> + PopulationEmpty<E = PE>,
+    P: Set<T = I, E = PE> + SetEmpty<E = PE>,
     PE: Sync + Send
 {
+    type I = I;
     type P = P;
     type IM = IM;
     type E = Error<PE, IM::E>;
@@ -56,7 +57,7 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use super::SimplePopulationJobs;
     use super::super::PopulationJobs;
-    use super::super::super::Population;
+    use super::super::super::super::super::set::Set;
     use super::super::super::super::individual;
 
     #[derive(PartialEq, Eq, Debug)]
@@ -97,7 +98,7 @@ mod tests {
         let mut im = TestIM(0);
         let p = jobs.init(&mut im, Arc::new(AtomicUsize::new(0))).unwrap();
         for i in 0 .. 10 {
-            assert_eq!(Population::get(&p, i), Ok(&TestI(TestC(i as u8 + 1))));
+            assert_eq!(Set::get(&p, i), Ok(&TestI(TestC(i as u8 + 1))));
         }
     }
 }
