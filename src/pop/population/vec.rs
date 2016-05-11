@@ -1,5 +1,5 @@
 
-use super::Population;
+use super::{Population, PopulationEmpty};
 use super::super::individual::Individual;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -39,10 +39,18 @@ impl<T> Population for Vec<T> where T: Individual {
     }
 }
 
+impl<T> PopulationEmpty for Vec<T> where T: Individual {
+    type E = Error;
+
+    fn make_empty() -> Result<Self, Self::E> {
+        Ok(Vec::new())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Error;
-    use super::super::Population;
+    use super::super::{Population, PopulationEmpty};
     use super::super::super::individual;
 
     #[derive(PartialEq, Eq, Debug)]
@@ -80,7 +88,8 @@ mod tests {
 
     #[test]
     fn basic() {
-        run_basic(Vec::new());
+        let pop: Vec<_> = PopulationEmpty::make_empty().unwrap();
+        run_basic(pop);
     }
 
     #[test]
@@ -89,7 +98,7 @@ mod tests {
         let v2 = vec![TestI(TestC(4)), TestI(TestC(5))];
         assert_eq!(Population::merge_many(vec![v1, v2].into_iter()),
                    Ok(Some(vec![TestI(TestC(1)), TestI(TestC(2)), TestI(TestC(3)), TestI(TestC(4)), TestI(TestC(5))])));
-        let empty: Vec<Vec<TestI>> = vec![];
+        let empty: Vec<Vec<TestI>> = Vec::new();
         assert_eq!(Population::merge_many(empty.into_iter()), Ok(None));
     }
 }

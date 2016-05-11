@@ -27,3 +27,9 @@ pub trait Population: Sized + Sync + Send {
     }
 }
 
+pub trait PopulationEmpty: Sized + Sync + Send {
+    type E: Sync + Send;
+
+    fn make_empty() -> Result<Self, Self::E>;
+}
+

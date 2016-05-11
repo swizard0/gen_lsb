@@ -8,7 +8,7 @@ use std::clone::Clone;
 pub mod pop;
 
 use pop::population::Population;
-use pop::population::manager::PopulationManager;
+use pop::population::manager::{PopulationManager, PopulationJobs};
 use pop::individual::Individual;
 use pop::individual::manager::IndividualManager;
 use pop::individual::chromosome::Chromosome;
@@ -19,6 +19,7 @@ pub trait ErrorsLayout {
     type IME: Sync + Send;
     type PE: Sync + Send;
     type PME: Sync + Send;
+    type PJE: Sync + Send;
 }
 
 pub trait AlgorithmLayout: 'static {
@@ -27,7 +28,8 @@ pub trait AlgorithmLayout: 'static {
     type I: Individual<C = Self::C, E = <Self::EL as ErrorsLayout>::IE>;
     type IM: IndividualManager<I = Self::I, E = <Self::EL as ErrorsLayout>::IME>;
     type P: Population<I = Self::I, E = <Self::EL as ErrorsLayout>::PE>;
-    type PM: PopulationManager<P = Self::P, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PME>;
+    type PJ: PopulationJobs<P = Self::P, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PJE>;
+    type PM: PopulationManager<PJ = Self::PJ, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PME>;
 }
 
 #[derive(Debug)]
@@ -38,6 +40,7 @@ pub enum Error<EL> where EL: ErrorsLayout {
     IndividualManager(EL::IME),
     Population(EL::PE),
     PopulationManager(EL::PME),
+    PopulationJobs(EL::PJE),
     UnexpectedEmptyPopulation,
     Several(Vec<Error<EL>>),
 }
@@ -135,7 +138,7 @@ fn slave_population_init<AL>(population_manager: Arc<AL::PM>, sync_counter: Arc<
 {
     let mut individual_manager =
         try!(population_manager.make_individual_manager().map_err(|e| Error::PopulationManager(e)));
-    population_manager.init(&mut individual_manager, sync_counter).map_err(|e| Error::PopulationManager(e))
+    population_manager.jobs().init(&mut individual_manager, sync_counter).map_err(|e| Error::PopulationJobs(e))
 }
 
 #[derive(Debug)]
