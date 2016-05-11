@@ -19,6 +19,6 @@ pub trait PopulationJobs {
     type IM: IndividualManager<I = Self::I>;
     type E: Sync + Send;
 
-    fn init<IT>(&self, individual_manager: &mut Self::IM, items: IT) -> Result<Self::P, Self::E> where IT: Iterator<Item = usize>;
+    fn init<IT>(&self, individual_manager: &mut Self::IM, indices: IT) -> Result<Self::P, Self::E> where IT: Iterator<Item = usize>;
 }
 
