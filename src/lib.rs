@@ -1,7 +1,7 @@
 use std::io;
 use std::thread;
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::clone::Clone;
 
@@ -134,12 +134,22 @@ fn slave_loop<AL>(rx: Receiver<Command<AL>>, tx: Sender<Result<Report<AL>, Error
     }
 }
 
+struct SyncIter(Arc<AtomicUsize>);
+
+impl Iterator for SyncIter {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        Some(self.0.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
 fn slave_population_init<AL>(population_manager: Arc<AL::PM>, sync_counter: Arc<AtomicUsize>) ->
     Result<AL::P, Error<AL::EL>> where AL: AlgorithmLayout
 {
     let mut individual_manager =
         try!(population_manager.make_individual_manager().map_err(|e| Error::PopulationManager(e)));
-    population_manager.jobs().init(&mut individual_manager, sync_counter).map_err(|e| Error::PopulationJobs(e))
+    population_manager.jobs().init(&mut individual_manager, SyncIter(sync_counter)).map_err(|e| Error::PopulationJobs(e))
 }
 
 #[derive(Debug)]

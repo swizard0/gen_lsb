@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use std::sync::atomic::{Ordering, AtomicUsize};
 use std::marker::PhantomData;
 use super::PopulationJobs;
 use super::super::super::super::set::{Set, SetEmpty};
@@ -24,6 +22,7 @@ impl<P, IM> SimplePopulationJobs<P, IM> {
 pub enum Error<PE, IME> {
     InitPopulation(PE),
     InitIndividualManager(IME),
+    UnexpectedEndOfItemsIterator,
 }
 
 impl<I, P, IM, PE> PopulationJobs for SimplePopulationJobs<P, IM> where
@@ -37,27 +36,24 @@ impl<I, P, IM, PE> PopulationJobs for SimplePopulationJobs<P, IM> where
     type IM = IM;
     type E = Error<PE, IM::E>;
 
-    fn init(&self, individual_manager: &mut Self::IM, sync_counter: Arc<AtomicUsize>) -> Result<Self::P, Self::E> {
+    fn init<IT>(&self, individual_manager: &mut Self::IM, items: IT) -> Result<Self::P, Self::E> where IT: Iterator<Item = usize> {
         let mut population = try!(P::make_empty().map_err(|e| Error::InitPopulation(e)));
-        loop {
-            let i = sync_counter.fetch_add(1, Ordering::Relaxed);
+        for i in items {
             if i >= self.limit {
                 return Ok(population);
             }
-
             let indiv = try!(individual_manager.generate().map_err(|e| Error::InitIndividualManager(e)));
             try!(population.add(indiv).map_err(|e| Error::InitPopulation(e)));
         }
+        Err(Error::UnexpectedEndOfItemsIterator)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::sync::atomic::AtomicUsize;
     use super::SimplePopulationJobs;
     use super::super::PopulationJobs;
-    use super::super::super::super::super::set::Set;
+    use super::super::super::super::super::set;
     use super::super::super::super::individual;
 
     #[derive(PartialEq, Eq, Debug)]
@@ -96,9 +92,10 @@ mod tests {
         let jobs: SimplePopulationJobs<Vec<TestI>, TestIM> =
             SimplePopulationJobs::new(10);
         let mut im = TestIM(0);
-        let p = jobs.init(&mut im, Arc::new(AtomicUsize::new(0))).unwrap();
+        let p = jobs.init(&mut im, 0 .. 100).unwrap();
         for i in 0 .. 10 {
-            assert_eq!(Set::get(&p, i), Ok(&TestI(TestC(i as u8 + 1))));
+            assert_eq!(set::Set::get(&p, i), Ok(&TestI(TestC(i as u8 + 1))));
         }
+        assert_eq!(set::Set::get(&p, 10), Err(set::vec::Error::IndexOutOfRange { index: 10, total: 10, }));
     }
 }
