@@ -7,6 +7,7 @@ use std::clone::Clone;
 
 pub mod pop;
 pub mod set;
+pub mod exec;
 
 use set::Set;
 use pop::population::manager::{PopulationManager, PopulationJobs};
@@ -27,9 +28,10 @@ pub trait AlgorithmLayout: 'static {
     type EL: ErrorsLayout;
     type C: Chromosome<E = <Self::EL as ErrorsLayout>::CE>;
     type I: Individual<C = Self::C, E = <Self::EL as ErrorsLayout>::IE>;
-    type IM: IndividualManager<I = Self::I, E = <Self::EL as ErrorsLayout>::IME>;
+    type FI;
+    type IM: IndividualManager<I = Self::I, FI = Self::FI, E = <Self::EL as ErrorsLayout>::IME>;
     type P: Set<T = Self::I, E = <Self::EL as ErrorsLayout>::PE>;
-    type PJ: PopulationJobs<I = Self::I, P = Self::P, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PJE>;
+    type PJ: PopulationJobs<I = Self::I, P = Self::P, FI = Self::FI, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PJE>;
     type PM: PopulationManager<PJ = Self::PJ, IM = Self::IM, E = <Self::EL as ErrorsLayout>::PME>;
 }
 
