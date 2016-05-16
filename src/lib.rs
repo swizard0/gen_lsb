@@ -1,3 +1,5 @@
+extern crate par_exec;
+
 use std::io;
 use std::thread;
 use std::sync::Arc;
@@ -7,7 +9,6 @@ use std::clone::Clone;
 
 pub mod pop;
 pub mod set;
-pub mod exec;
 
 use set::Set;
 use pop::population::manager::{PopulationManager, PopulationJobs};
