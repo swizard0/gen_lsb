@@ -1,31 +1,61 @@
+use par_exec::Reducer;
 
-pub mod vec;
+// pub mod vec;
 
-pub trait Set: Sized + Sync + Send {
+pub trait Set {
     type T;
-    type E: Sync + Send;
+    type E;
 
     fn size(&self) -> usize;
     fn get(&self, index: usize) -> Result<&Self::T, Self::E>;
-    fn add(&mut self, indiv: Self::T) -> Result<(), Self::E>;
-    fn del(&mut self, index: usize) -> Result<Self::T, Self::E>;
-    fn merge(self, other: Self) -> Result<Self, Self::E>;
+    fn add(&mut self, item: Self::T) -> Result<(), Self::E>;
+}
 
-    fn merge_many<IT>(sets: IT) -> Result<Option<Self>, Self::E> where IT: Iterator<Item = Self> {
-        let mut result: Option<Self> = None;
-        for set in sets {
-            result = Some(if let Some(current_set) = result.take() {
-                try!(current_set.merge(set))
-            } else {
-                set
-            });
+pub trait SetManager {
+    type S;
+    type E;
+
+    fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E>;
+}
+
+pub enum SetsMergerError<ES, ESM> {
+    Set(ES),
+    SetManager(ESM),
+}
+
+pub struct SetsMerger<SM> {
+    set_manager: SM,
+}
+
+impl<SM> SetsMerger<SM> {
+    pub fn new(set_manager: SM) -> SetsMerger<SM> {
+        SetsMerger {
+            set_manager: set_manager,
         }
-        Ok(result)
     }
 }
 
-pub trait SetEmpty: Sized + Sync + Send {
-    type E: Sync + Send;
+impl<S, T, ES, SM, ESM> Reducer for SetsMerger<SM> where
+    S: Set<T = T, E = ES>,
+    SM: SetManager<S = S, E = ESM>
+{
+    type R = S;
+    type E = SetsMergerError<ES, ESM>;
 
-    fn make_empty() -> Result<Self, Self::E>;
+    fn len(&self, item: &Self::R) -> Option<usize> {
+        Some(item.size())
+    }
+    
+    fn reduce(&mut self, item_a: Self::R, item_b: Self::R) -> Result<Self::R, Self::E> {
+        let (limit_i, limit_j) = (item_a.size(), item_b.size());
+        let mut target =
+            try!(self.set_manager.make_set(limit_i + limit_j).map_err(|e| SetsMergerError::SetManager(e)));
+        let (mut i, mut j) = (0, 0);
+
+        Ok(item_a)
+        // while (i < limit_i) && (j < limit_j) {
+            
+        // }
+    }
 }
+
