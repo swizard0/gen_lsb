@@ -1,6 +1,6 @@
 pub mod vec;
 pub mod merge;
-//pub mod union;
+pub mod union;
 
 pub trait Set {
     type T;
