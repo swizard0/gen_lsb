@@ -5,3 +5,6 @@ authors = ["Alexey Voznyuk <me@swizard.info>"]
 
 [dependencies]
 par_exec = { git = "https://github.com/swizard0/par_exec.git" }
+
+[dev-dependencies]
+rand = "0.3"

@@ -1,7 +1,7 @@
 use par_exec::Reducer;
 use super::{Set, SetManager};
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Error<ES, ESM> {
     Set(ES),
     SetManager(ESM),
@@ -63,7 +63,51 @@ impl<S, T, ES, SM, ESM> Reducer for SetsMerger<SM> where
 
 #[cfg(test)]
 mod tests {
+    extern crate rand;
+
+    use par_exec::Reducer;
+    use self::rand::Rng;
     use super::{Error, SetsMerger};
-    use su
-    
+    use super::super::SetManager;
+    use super::super::vec::Manager;
+
+    #[test]
+    fn merge_sorted_vecs() {
+        let mut rng = rand::thread_rng();
+        let mut vec_a: Vec<u64> = (0 .. 1024).map(|_| rng.gen()).collect();
+        let mut vec_b: Vec<u64> = (0 .. 768).map(|_| rng.gen()).collect();
+        vec_a.sort();
+        vec_b.sort();
+
+        let mut sets_merger = SetsMerger::new(Manager::new());
+
+        assert_eq!(sets_merger.len(&vec_a), Some(1024));
+        assert_eq!(sets_merger.len(&vec_b), Some(768));
+
+        let vec_c = sets_merger.reduce(vec_a, vec_b).unwrap();
+        assert_eq!(sets_merger.len(&vec_c), Some(1024 + 768));
+
+        for i in 1 .. 1024 + 768 {
+            assert!(vec_c[i - 1] <= vec_c[i]);
+        }
+    }
+
+    #[test]
+    fn manager_error() {
+        #[derive(PartialEq, Debug)]
+        struct LooserManagerError;
+        struct LooserManager;
+
+        impl SetManager for LooserManager {
+            type S = Vec<u64>;
+            type E = LooserManagerError;
+
+            fn make_set(&mut self, _size_hint: usize) -> Result<Self::S, Self::E> {
+                Err(LooserManagerError)
+            }
+        }
+
+        let mut sets_merger = SetsMerger::new(LooserManager);
+        assert_eq!(sets_merger.reduce(vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
+    }
 }
