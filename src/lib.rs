@@ -3,10 +3,7 @@ extern crate par_exec;
 // pub mod pop;
 pub mod set;
 
-use set::Set;
-
-
-
+// use set::Set;
 
 // use pop::population::manager::{PopulationManager, PopulationJobs};
 // use pop::individual::Individual;

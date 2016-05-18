@@ -1,14 +1,39 @@
-
-use super::{Set, SetEmpty};
+use std::vec::IntoIter;
+use std::marker::PhantomData;
+use super::{Set, SetManager};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {
     IndexOutOfRange { index: usize, total: usize },
 }
 
+pub struct VecSetIter<T, E> {
+    iter: Option<IntoIter<T>>,
+    _marker: PhantomData<E>,
+}
+
+impl<T, E> Iterator for VecSetIter<T, E> {
+    type Item = Result<T, E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(mut iter) = self.iter.take() {
+            match iter.next() {
+                None => None,
+                Some(value) => {
+                    self.iter = Some(iter);
+                    Some(Ok(value))
+                }
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl<T> Set for Vec<T> where T: Sized + Sync + Send {
     type T = T;
     type E = Error;
+    type I = VecSetIter<Self::T, Self::E>;
 
     fn size(&self) -> usize {
         self.len()
@@ -24,32 +49,39 @@ impl<T> Set for Vec<T> where T: Sized + Sync + Send {
         Ok(())
     }
 
-    fn del(&mut self, index: usize) -> Result<Self::T, Self::E> {
-        if index < self.len() {
-            Ok(self.swap_remove(index))
-        } else {
-            Err(Error::IndexOutOfRange { index: index, total: self.len(), })
+    fn into_iter(self) -> Self::I {
+        VecSetIter {
+            iter: Some(IntoIterator::into_iter(self)),
+            _marker: PhantomData,
         }
-    }
-
-    fn merge(mut self, other: Self) -> Result<Self, Self::E> {
-        self.extend(other.into_iter());
-        Ok(self)
     }
 }
 
-impl<T> SetEmpty for Vec<T> where T: Sized + Sync + Send {
-    type E = Error;
+pub struct Manager<T> {
+    _marker: PhantomData<T>,
+}
 
-    fn make_empty() -> Result<Self, Self::E> {
-        Ok(Vec::new())
+impl<T> Manager<T> {
+    pub fn new() -> Manager<T> {
+        Manager {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> SetManager for Manager<T> {
+    type S = Vec<T>;
+    type E = ();
+
+    fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E> {
+        Ok(Vec::with_capacity(size_hint))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Error;
-    use super::super::{Set, SetEmpty};
+    use super::{Error, Manager};
+    use super::super::{Set, SetManager};
 
     fn run_basic<S>(mut set: S) where S: Set<T = u8, E = Error> {
         assert_eq!(set.size(), 0);
@@ -60,23 +92,11 @@ mod tests {
         assert_eq!(set.get(0), Ok(&0));
         assert_eq!(set.get(1), Ok(&1));
         assert_eq!(set.get(2), Err(Error::IndexOutOfRange { index: 2, total: 2, }));
-        assert_eq!(set.del(0), Ok(0));
-        assert_eq!(set.size(), 1);
-        assert_eq!(set.get(0), Ok(&1));
+        assert_eq!(set.into_iter().map(|r| r.unwrap()).collect::<Vec<_>>(), vec![0, 1]);
     }
 
     #[test]
     fn basic() {
-        let set: Vec<_> = SetEmpty::make_empty().unwrap();
-        run_basic(set);
-    }
-
-    #[test]
-    fn merge() {
-        let v1 = vec![1, 2, 3];
-        let v2 = vec![4, 5];
-        assert_eq!(Set::merge_many(vec![v1, v2].into_iter()), Ok(Some(vec![1, 2, 3, 4, 5])));
-        let empty: Vec<Vec<u8>> = Vec::new();
-        assert_eq!(Set::merge_many(empty.into_iter()), Ok(None));
+        run_basic(Manager::new().make_set(0).unwrap());
     }
 }
