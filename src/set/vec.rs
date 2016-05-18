@@ -76,6 +76,10 @@ impl<T> SetManager for Manager<T> {
     fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E> {
         Ok(Vec::with_capacity(size_hint))
     }
+
+    fn reserve(&mut self, set: &mut Self::S, additional: usize) -> Result<(), Self::E> {
+        Ok(set.reserve(additional))
+    }
 }
 
 #[cfg(test)]

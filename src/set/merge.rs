@@ -105,6 +105,10 @@ mod tests {
             fn make_set(&mut self, _size_hint: usize) -> Result<Self::S, Self::E> {
                 Err(LooserManagerError)
             }
+
+            fn reserve(&mut self, _set: &mut Self::S, _additional: usize) -> Result<(), Self::E> {
+                Err(LooserManagerError)
+            }
         }
 
         let mut sets_merger = SetsMerge::new(LooserManager);

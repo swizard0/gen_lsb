@@ -1,5 +1,6 @@
 pub mod vec;
 pub mod merge;
+//pub mod union;
 
 pub trait Set {
     type T;
@@ -17,4 +18,5 @@ pub trait SetManager {
     type E;
 
     fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E>;
+    fn reserve(&mut self, set: &mut Self::S, additional: usize) -> Result<(), Self::E>;
 }
