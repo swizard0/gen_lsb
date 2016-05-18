@@ -7,19 +7,19 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub struct SetsMerger<SM> {
+pub struct SetsMerge<SM> {
     set_manager: SM,
 }
 
-impl<SM> SetsMerger<SM> {
-    pub fn new(set_manager: SM) -> SetsMerger<SM> {
-        SetsMerger {
+impl<SM> SetsMerge<SM> {
+    pub fn new(set_manager: SM) -> SetsMerge<SM> {
+        SetsMerge {
             set_manager: set_manager,
         }
     }
 }
 
-impl<S, T, ES, SM, ESM> Reducer for SetsMerger<SM> where
+impl<S, T, ES, SM, ESM> Reducer for SetsMerge<SM> where
     T: PartialOrd,
     S: Set<T = T, E = ES>,
     SM: SetManager<S = S, E = ESM>
@@ -67,7 +67,7 @@ mod tests {
 
     use par_exec::Reducer;
     use self::rand::Rng;
-    use super::{Error, SetsMerger};
+    use super::{Error, SetsMerge};
     use super::super::SetManager;
     use super::super::vec::Manager;
 
@@ -79,7 +79,7 @@ mod tests {
         vec_a.sort();
         vec_b.sort();
 
-        let mut sets_merger = SetsMerger::new(Manager::new());
+        let mut sets_merger = SetsMerge::new(Manager::new());
 
         assert_eq!(sets_merger.len(&vec_a), Some(1024));
         assert_eq!(sets_merger.len(&vec_b), Some(768));
@@ -107,7 +107,7 @@ mod tests {
             }
         }
 
-        let mut sets_merger = SetsMerger::new(LooserManager);
+        let mut sets_merger = SetsMerge::new(LooserManager);
         assert_eq!(sets_merger.reduce(vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
     }
 }
