@@ -7,5 +7,5 @@ pub trait Algorithm {
     type Res;
     type Err;
 
-    fn run(executor: &mut Self::Exec) -> Result<Self::Res, Self::Err>;
+    fn run(executor: Self::Exec) -> Result<Self::Res, Self::Err>;
 }
