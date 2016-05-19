@@ -1,6 +1,6 @@
 use par_exec::Executor;
 
-// pub mod limited;
+pub mod limited;
 
 use super::individual::Individual;
 use super::super::set::Set;
