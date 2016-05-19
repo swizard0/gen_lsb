@@ -14,7 +14,7 @@ pub trait Set {
 }
 
 pub trait SetManager {
-    type S;
+    type S: Set;
     type E;
 
     fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E>;

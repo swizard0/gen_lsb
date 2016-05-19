@@ -30,7 +30,7 @@ impl<T, E> Iterator for VecSetIter<T, E> {
     }
 }
 
-impl<T> Set for Vec<T> where T: Sized + Sync + Send {
+impl<T> Set for Vec<T> where T: Sized {
     type T = T;
     type E = Error;
     type I = VecSetIter<Self::T, Self::E>;
