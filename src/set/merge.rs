@@ -1,4 +1,3 @@
-use par_exec::Reducer;
 use super::{Set, SetManager};
 
 #[derive(PartialEq, Debug)]
@@ -7,57 +6,38 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub struct SetsMerge<SM> {
-    set_manager: SM,
-}
-
-impl<SM> SetsMerge<SM> {
-    pub fn new(set_manager: SM) -> SetsMerge<SM> {
-        SetsMerge {
-            set_manager: set_manager,
-        }
-    }
-}
-
-impl<S, T, ES, SM, ESM> Reducer for SetsMerge<SM> where
+pub fn merge<LC, T, S, SE, SM, SME>(local_context: &mut LC, item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
+    LC: AsMut<SM>,
     T: PartialOrd,
-    S: Set<T = T, E = ES>,
-    SM: SetManager<S = S, E = ESM>
+    S: Set<T = T, E = SE>,
+    SM: SetManager<S = S, E = SME>
 {
-    type R = S;
-    type E = Error<ES, ESM>;
+    let (limit_a, limit_b) = (item_a.size(), item_b.size());
+    let set_manager: &mut SM = local_context.as_mut();
+    let mut target =
+        try!(set_manager.make_set(limit_a + limit_b).map_err(|e| Error::SetManager(e)));
+    let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
+    let (mut curr_a, mut curr_b) = (iter_a.next(), iter_b.next());
+    loop {
+        let (value, next_a, next_b) = match (curr_a, curr_b) {
+            (None, None) =>
+                return Ok(target),
+            (Some(Err(e)), _) | (_, Some(Err(e))) =>
+                return Err(Error::Set(e)),
+            (None, Some(Ok(value_b))) =>
+                (value_b, None, iter_b.next()),
+            (Some(Ok(value_a)), None) =>
+                (value_a, iter_a.next(), None),
+            (Some(Ok(value_a)), Some(Ok(value_b))) => if value_a < value_b {
+                (value_a, iter_a.next(), Some(Ok(value_b)))
+            } else {
+                (value_b, Some(Ok(value_a)), iter_b.next())
+            },
+        };
 
-    fn len(&self, item: &Self::R) -> Option<usize> {
-        Some(item.size())
-    }
-
-    fn reduce(&mut self, item_a: Self::R, item_b: Self::R) -> Result<Self::R, Self::E> {
-        let (limit_a, limit_b) = (item_a.size(), item_b.size());
-        let mut target =
-            try!(self.set_manager.make_set(limit_a + limit_b).map_err(|e| Error::SetManager(e)));
-        let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
-        let (mut curr_a, mut curr_b) = (iter_a.next(), iter_b.next());
-        loop {
-            let (value, next_a, next_b) = match (curr_a, curr_b) {
-                (None, None) =>
-                    return Ok(target),
-                (Some(Err(e)), _) | (_, Some(Err(e))) =>
-                    return Err(Error::Set(e)),
-                (None, Some(Ok(value_b))) =>
-                    (value_b, None, iter_b.next()),
-                (Some(Ok(value_a)), None) =>
-                    (value_a, iter_a.next(), None),
-                (Some(Ok(value_a)), Some(Ok(value_b))) => if value_a < value_b {
-                    (value_a, iter_a.next(), Some(Ok(value_b)))
-                } else {
-                    (value_b, Some(Ok(value_a)), iter_b.next())
-                },
-            };
-
-            curr_a = next_a;
-            curr_b = next_b;
-            try!(target.add(value).map_err(|e| Error::Set(e)));
-        }
+        curr_a = next_a;
+        curr_b = next_b;
+        try!(target.add(value).map_err(|e| Error::Set(e)));
     }
 }
 
@@ -65,9 +45,8 @@ impl<S, T, ES, SM, ESM> Reducer for SetsMerge<SM> where
 mod tests {
     extern crate rand;
 
-    use par_exec::Reducer;
     use self::rand::Rng;
-    use super::{Error, SetsMerge};
+    use super::{Error, merge};
     use super::super::SetManager;
     use super::super::vec::Manager;
 
@@ -79,13 +58,17 @@ mod tests {
         vec_a.sort();
         vec_b.sort();
 
-        let mut sets_merger = SetsMerge::new(Manager::new());
+        struct LocalContext<T>(Manager<T>);
+        impl<T> AsMut<Manager<T>> for LocalContext<T> {
+            fn as_mut(&mut self) -> &mut Manager<T> {
+                &mut self.0
+            }
+        }
 
-        assert_eq!(sets_merger.len(&vec_a), Some(1024));
-        assert_eq!(sets_merger.len(&vec_b), Some(768));
+        let mut local_context = LocalContext(Manager::new());
 
-        let vec_c = sets_merger.reduce(vec_a, vec_b).unwrap();
-        assert_eq!(sets_merger.len(&vec_c), Some(1024 + 768));
+        let vec_c = merge(&mut local_context, vec_a, vec_b).unwrap();
+        assert_eq!(vec_c.len(), 1024 + 768);
 
         for i in 1 .. 1024 + 768 {
             assert!(vec_c[i - 1] <= vec_c[i]);
@@ -111,7 +94,14 @@ mod tests {
             }
         }
 
-        let mut sets_merger = SetsMerge::new(LooserManager);
-        assert_eq!(sets_merger.reduce(vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
+        struct LocalContext(LooserManager);
+        impl AsMut<LooserManager> for LocalContext {
+            fn as_mut(&mut self) -> &mut LooserManager {
+                &mut self.0
+            }
+        }
+
+        let mut local_context = LocalContext(LooserManager);
+        assert_eq!(merge(&mut local_context, vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
     }
 }

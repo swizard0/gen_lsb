@@ -1,4 +1,3 @@
-use par_exec::Reducer;
 use super::{Set, SetManager};
 
 #[derive(PartialEq, Debug)]
@@ -7,38 +6,18 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub struct SetsUnion<SM> {
-    set_manager: SM,
-}
-
-impl<SM> SetsUnion<SM> {
-    pub fn new(set_manager: SM) -> SetsUnion<SM> {
-        SetsUnion {
-            set_manager: set_manager,
-        }
-    }
-}
-
-impl<S, T, ES, SM, ESM> Reducer for SetsUnion<SM> where
-    T: PartialOrd,
-    S: Set<T = T, E = ES>,
-    SM: SetManager<S = S, E = ESM>
+pub fn union<LC, S, SE, SM, SME>(local_context: &mut LC, mut item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
+    LC: AsMut<SM>,
+    S: Set<E = SE>,
+    SM: SetManager<S = S, E = SME>
 {
-    type R = S;
-    type E = Error<ES, ESM>;
-
-    fn len(&self, item: &Self::R) -> Option<usize> {
-        Some(item.size())
+    let set_manager: &mut SM = local_context.as_mut();
+    try!(set_manager.reserve(&mut item_a, item_b.size()).map_err(|e| Error::SetManager(e)));
+    for maybe_value in item_b.into_iter() {
+        let value = try!(maybe_value.map_err(|e| Error::Set(e)));
+        try!(item_a.add(value).map_err(|e| Error::Set(e)));
     }
-
-    fn reduce(&mut self, mut item_a: Self::R, item_b: Self::R) -> Result<Self::R, Self::E> {
-        try!(self.set_manager.reserve(&mut item_a, item_b.size()).map_err(|e| Error::SetManager(e)));
-        for maybe_value in item_b.into_iter() {
-            let value = try!(maybe_value.map_err(|e| Error::Set(e)));
-            try!(item_a.add(value).map_err(|e| Error::Set(e)));
-        }
-        Ok(item_a)
-    }
+    Ok(item_a)
 }
 
 #[cfg(test)]
@@ -46,9 +25,8 @@ mod tests {
     extern crate rand;
 
     use std::collections::HashSet;
-    use par_exec::Reducer;
     use self::rand::Rng;
-    use super::{Error, SetsUnion};
+    use super::{Error, union};
     use super::super::SetManager;
     use super::super::vec::Manager;
 
@@ -60,13 +38,17 @@ mod tests {
         let vec_a_clone = vec_a.clone();
         let vec_b_clone = vec_b.clone();
 
-        let mut sets_unioner = SetsUnion::new(Manager::new());
+        struct LocalContext<T>(Manager<T>);
+        impl<T> AsMut<Manager<T>> for LocalContext<T> {
+            fn as_mut(&mut self) -> &mut Manager<T> {
+                &mut self.0
+            }
+        }
 
-        assert_eq!(sets_unioner.len(&vec_a), Some(1024));
-        assert_eq!(sets_unioner.len(&vec_b), Some(768));
+        let mut local_context = LocalContext(Manager::new());
 
-        let vec_c = sets_unioner.reduce(vec_a, vec_b).unwrap();
-        assert_eq!(sets_unioner.len(&vec_c), Some(1024 + 768));
+        let vec_c = union(&mut local_context, vec_a, vec_b).unwrap();
+        assert_eq!(vec_c.len(), 1024 + 768);
 
         let table: HashSet<u64> = vec_c.into_iter().collect();
 
@@ -94,7 +76,14 @@ mod tests {
             }
         }
 
-        let mut sets_unioner = SetsUnion::new(LooserManager);
-        assert_eq!(sets_unioner.reduce(vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
+        struct LocalContext(LooserManager);
+        impl AsMut<LooserManager> for LocalContext {
+            fn as_mut(&mut self) -> &mut LooserManager {
+                &mut self.0
+            }
+        }
+
+        let mut local_context = LocalContext(LooserManager);
+        assert_eq!(union(&mut local_context, vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
     }
 }
