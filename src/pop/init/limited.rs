@@ -1,17 +1,19 @@
 use std::marker::PhantomData;
-use par_exec::{Executor, ExecutorJobError};
+use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationInit;
 use super::super::individual::Individual;
 use super::super::super::set::{Set, SetManager};
-use super::super::super::set::union::SetsUnion;
+use super::super::super::set::union;
 
 pub trait Policy {
-    type LocalContext;
+    type LocalContext: AsMut<Self::PopSM>;
     type Exec: Executor<LC = Self::LocalContext>;
     type Indiv: Individual;
-    type Pop: Set<T = Self::Indiv>;
-    type PopSM: SetManager<S = Self::Pop>;
+    type PopE: Send + 'static;
+    type Pop: Set<T = Self::Indiv, E = Self::PopE> + Send + 'static;
+    type PopSME: Send + 'static;
+    type PopSM: SetManager<S = Self::Pop, E = Self::PopSME>;
 }
 
 pub struct LimitedPopulationInit<P> where P: Policy {
@@ -31,6 +33,8 @@ impl<P> LimitedPopulationInit<P> where P: Policy {
 pub enum Error<P> where P: Policy {
     NoOutputPopulation,
     Executor(<P::Exec as Executor>::E),
+    JobMap(()),
+    JobReduce(union::Error<P::PopE, P::PopSME>),
     Several(Vec<Error<P>>),
 }
 
@@ -41,36 +45,31 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     type Err = Error<P>;
 
     fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
-        struct InitJob<P>(PhantomData<P>);
 
-        // impl<P> Job for InitJob<P> {
-        //     type LC = P::Exec::LC;
-        //     type R = P::Pop;
-        //     type RR = ?? SetsUnion<P::PopSM>    : Reducer<R = Self::R> + ReducerRetrieve<LC = Self::LC>;
-        //     type E = Error<P>;
+        fn err_map_rec<P>(err: ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<(), union::Error<P::PopE, P::PopSME>>>) -> Error<P> where P: Policy {
+            match err {
+                ExecutorJobError::Executor(e) =>
+                    Error::Executor(e),
+                ExecutorJobError::Job(JobExecuteError::Job(e)) =>
+                    Error::JobMap(e),
+                ExecutorJobError::Job(JobExecuteError::Reducer(e)) =>
+                    Error::JobReduce(e),
+                ExecutorJobError::Several(ee) =>
+                    Error::Several(IntoIterator::into_iter(ee).map(err_map_rec).collect()),
+            }
+        }
 
-        //     fn execute<IS>(&self, local_context: &mut Self::LC, input_indices: IS) ->
-        //         Result<Self::R, JobExecuteError<Self::E, <Self::RR as Reducer>::E>>
-        //         where IS: Iterator<Item = usize>;
-        // }
-
-        // fn err_map_rec(err: ExecutorJobError<P::Exec::E, ?>) -> Error<P> {
-        //     match err {
-        //         ExecutorJobError::Executor(e) =>
-        //             Error::Executor(e),
-        //         ExecutorJobError::Job(e) =>
-        //             unimplemented!(),
-        //         ExecutorJobError::Several(ee) =>
-        //             Error::Several(ee.into_iter().map(err_map_rec).collect()),
-        //     }
-        // }
-
-        // match exec.execute_job(self.limit, init_job) {
-        //     Ok(None) => Err(Error::NoOutputPopulation),
-        //     Ok(Some(population)) => Ok(population),
-        //     Err(e) => Err(err_map_rec(e)),
-        // }
-
-        Err(Error::NoOutputPopulation)
+        match exec.execute_job(
+            self.limit,
+            move |_local_context, _input_indices| {
+                Err(())
+            },
+            move |_local_context: &mut <Self::Exec as Executor>::LC, set: &Self::Pop| Some(set.size()),
+            move |local_context, pop_a, pop_b| union::union(local_context, pop_a, pop_b))
+        {
+            Ok(None) => Err(Error::NoOutputPopulation),
+            Ok(Some(population)) => Ok(population),
+            Err(e) => Err(err_map_rec(e)),
+        }
     }
 }
