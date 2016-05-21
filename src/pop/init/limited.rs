@@ -32,10 +32,7 @@ impl<P> LimitedPopulationInit<P> where P: Policy {
 
 pub enum Error<P> where P: Policy {
     NoOutputPopulation,
-    Executor(<P::Exec as Executor>::E),
-    JobMap(()),
-    JobReduce(union::Error<P::PopE, P::PopSME>),
-    Several(Vec<Error<P>>),
+    Executor(ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<(), union::Error<P::PopE, P::PopSME>>>),
 }
 
 impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
@@ -45,31 +42,16 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     type Err = Error<P>;
 
     fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
-
-        fn err_map_rec<P>(err: ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<(), union::Error<P::PopE, P::PopSME>>>) -> Error<P> where P: Policy {
-            match err {
-                ExecutorJobError::Executor(e) =>
-                    Error::Executor(e),
-                ExecutorJobError::Job(JobExecuteError::Job(e)) =>
-                    Error::JobMap(e),
-                ExecutorJobError::Job(JobExecuteError::Reducer(e)) =>
-                    Error::JobReduce(e),
-                ExecutorJobError::Several(ee) =>
-                    Error::Several(IntoIterator::into_iter(ee).map(err_map_rec).collect()),
-            }
-        }
-
         match exec.execute_job(
             self.limit,
             move |_local_context, _input_indices| {
                 Err(())
             },
-            move |_local_context: &mut <Self::Exec as Executor>::LC, set: &Self::Pop| Some(set.size()),
             move |local_context, pop_a, pop_b| union::union(local_context, pop_a, pop_b))
         {
             Ok(None) => Err(Error::NoOutputPopulation),
             Ok(Some(population)) => Ok(population),
-            Err(e) => Err(err_map_rec(e)),
+            Err(e) => Err(Error::Executor(e)),
         }
     }
 }
