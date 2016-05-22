@@ -42,7 +42,7 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     type Err = Error<P>;
 
     fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
-        match exec.execute_job(
+        match exec.try_execute_job(
             self.limit,
             move |_local_context, _input_indices| {
                 Err(())

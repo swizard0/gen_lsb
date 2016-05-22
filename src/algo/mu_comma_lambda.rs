@@ -76,7 +76,7 @@ impl<AP> Algorithm for MuCommaLambda<AP> where AP: APolicy {
 
     fn run(self, not_started_executor: Self::Exec) -> Result<Self::Res, Self::Err> {
         let mut executor =
-            try!(not_started_executor.start(self.lc_builder).map_err(|e| Error::ExecutorStart(e)));
+            try!(not_started_executor.try_start(self.lc_builder).map_err(|e| Error::ExecutorStart(e)));
         let init_population = try!(self.pop_init.init(&mut executor).map_err(|e| Error::PopulationInit(e)));
 
 
