@@ -14,23 +14,23 @@ pub trait Policy {
     type IndivME: Send + 'static;
     type IndivM: IndividualManager<I = Self::Indiv, E = Self::IndivME>;
 
-    // init population config
-    type PopInitSE: Send + 'static;
-    type PopInitS: Set<T = Self::Indiv, E = Self::PopInitSE> + Send + 'static;
-    type PopInitSME: Send + 'static;
-    type PopInitSM: SetManager<S = Self::PopInitS, E = Self::PopInitSME>;
+    // population config
+    type PopSE: Send + 'static;
+    type PopS: Set<T = Self::Indiv, E = Self::PopSE> + Send + 'static;
+    type PopSME: Send + 'static;
+    type PopSM: SetManager<S = Self::PopS, E = Self::PopSME>;
 }
 
 pub struct LocalContext<P> where P: Policy {
     indiv_manager: P::IndivM,
-    pop_init_set_manager: P::PopInitSM,
+    pop_set_manager: P::PopSM,
 }
 
 impl<P> SetManagerMut for LocalContext<P> where P: Policy {
-    type SM = P::PopInitSM;
+    type SM = P::PopSM;
 
     fn set_manager_mut(&mut self) -> &mut Self::SM {
-        &mut self.pop_init_set_manager
+        &mut self.pop_set_manager
     }
 }
 
@@ -57,10 +57,10 @@ impl<AP> limited::Policy for PopInitPolicy<AP> where AP: APolicy {
     type Indiv = <AP::P as Policy>::Indiv;
     type IndivME = <AP::P as Policy>::IndivME;
     type IndivM = <AP::P as Policy>::IndivM;
-    type PopE = <AP::P as Policy>::PopInitSE;
-    type Pop = <AP::P as Policy>::PopInitS;
-    type PopSME = <AP::P as Policy>::PopInitSME;
-    type PopSM = <AP::P as Policy>::PopInitSM;
+    type PopE = <AP::P as Policy>::PopSE;
+    type Pop = <AP::P as Policy>::PopS;
+    type PopSME = <AP::P as Policy>::PopSME;
+    type PopSM = <AP::P as Policy>::PopSM;
 }
 
 pub struct MuCommaLambda<AP> where AP: APolicy {
