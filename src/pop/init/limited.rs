@@ -2,14 +2,15 @@ use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationInit;
-use super::super::individual::Individual;
-use super::super::super::set::{Set, SetManager};
+use super::super::individual::{Individual, IndividualManager, IndividualManagerMut};
+use super::super::super::set::{Set, SetManager, SetManagerMut};
 use super::super::super::set::union;
 
 pub trait Policy {
-    type LocalContext: AsMut<Self::PopSM>;
+    type LocalContext: SetManagerMut<SM = Self::PopSM> + IndividualManagerMut<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
     type Indiv: Individual;
+    type IndivM: IndividualManager<I = Self::Indiv>;
     type PopE: Send + 'static;
     type Pop: Set<T = Self::Indiv, E = Self::PopE> + Send + 'static;
     type PopSME: Send + 'static;
@@ -44,7 +45,10 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
         match exec.try_execute_job(
             self.limit,
-            move |_local_context, _input_indices| {
+            move |local_context, input_indices| {
+                let mut set_manager = local_context.set_manager_mut();
+                for _ in input_indices {
+                }
                 Err(())
             },
             move |local_context, pop_a, pop_b| union::union(local_context, pop_a, pop_b))

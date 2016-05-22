@@ -1,4 +1,4 @@
-use super::{Set, SetManager};
+use super::{Set, SetManager, SetManagerMut};
 
 #[derive(PartialEq, Debug)]
 pub enum Error<ES, ESM> {
@@ -7,13 +7,13 @@ pub enum Error<ES, ESM> {
 }
 
 pub fn merge<LC, T, S, SE, SM, SME>(local_context: &mut LC, item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
-    LC: AsMut<SM>,
+    LC: SetManagerMut<SM = SM>,
     T: PartialOrd,
     S: Set<T = T, E = SE>,
     SM: SetManager<S = S, E = SME>
 {
     let (limit_a, limit_b) = (item_a.size(), item_b.size());
-    let set_manager: &mut SM = local_context.as_mut();
+    let set_manager = local_context.set_manager_mut();
     let mut target =
         try!(set_manager.make_set(limit_a + limit_b).map_err(|e| Error::SetManager(e)));
     let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
@@ -47,7 +47,7 @@ mod tests {
 
     use self::rand::Rng;
     use super::{Error, merge};
-    use super::super::SetManager;
+    use super::super::{SetManager, SetManagerMut};
     use super::super::vec::Manager;
 
     #[test]
@@ -59,8 +59,10 @@ mod tests {
         vec_b.sort();
 
         struct LocalContext<T>(Manager<T>);
-        impl<T> AsMut<Manager<T>> for LocalContext<T> {
-            fn as_mut(&mut self) -> &mut Manager<T> {
+        impl<T> SetManagerMut for LocalContext<T> {
+            type SM = Manager<T>;
+
+            fn set_manager_mut(&mut self) -> &mut Manager<T> {
                 &mut self.0
             }
         }
@@ -95,8 +97,10 @@ mod tests {
         }
 
         struct LocalContext(LooserManager);
-        impl AsMut<LooserManager> for LocalContext {
-            fn as_mut(&mut self) -> &mut LooserManager {
+        impl SetManagerMut for LocalContext {
+            type SM = LooserManager;
+
+            fn set_manager_mut(&mut self) -> &mut LooserManager {
                 &mut self.0
             }
         }

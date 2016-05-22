@@ -20,3 +20,9 @@ pub trait SetManager {
     fn make_set(&mut self, size_hint: usize) -> Result<Self::S, Self::E>;
     fn reserve(&mut self, set: &mut Self::S, additional: usize) -> Result<(), Self::E>;
 }
+
+pub trait SetManagerMut {
+    type SM: SetManager;
+
+    fn set_manager_mut(&mut self) -> &mut Self::SM;
+}

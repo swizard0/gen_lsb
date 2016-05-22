@@ -2,15 +2,16 @@ use std::marker::PhantomData;
 use par_exec::{Executor, LocalContextBuilder, ExecutorNewError};
 
 use super::Algorithm;
-use super::super::pop::individual::Individual;
+use super::super::pop::individual::{Individual, IndividualManager, IndividualManagerMut};
 use super::super::pop::init::PopulationInit;
 use super::super::pop::init::limited;
-use super::super::set::{Set, SetManager};
+use super::super::set::{Set, SetManager, SetManagerMut};
 
 // common policy
 pub trait Policy {
     // individual config
     type Indiv: Individual;
+    type IndivM: IndividualManager<I = Self::Indiv>;
 
     // init population config
     type PopInitSE: Send + 'static;
@@ -20,12 +21,23 @@ pub trait Policy {
 }
 
 pub struct LocalContext<P> where P: Policy {
+    indiv_manager: P::IndivM,
     pop_init_set_manager: P::PopInitSM,
 }
 
-impl<P> AsMut<P::PopInitSM> for LocalContext<P> where P: Policy {
-    fn as_mut(&mut self) -> &mut P::PopInitSM {
+impl<P> SetManagerMut for LocalContext<P> where P: Policy {
+    type SM = P::PopInitSM;
+
+    fn set_manager_mut(&mut self) -> &mut Self::SM {
         &mut self.pop_init_set_manager
+    }
+}
+
+impl<P> IndividualManagerMut for LocalContext<P> where P: Policy {
+    type IM = P::IndivM;
+
+    fn individual_manager_mut(&mut self) -> &mut Self::IM {
+        &mut self.indiv_manager
     }
 }
 
@@ -42,6 +54,7 @@ impl<AP> limited::Policy for PopInitPolicy<AP> where AP: APolicy {
     type LocalContext = LocalContext<AP::P>;
     type Exec = AP::Exec;
     type Indiv = <AP::P as Policy>::Indiv;
+    type IndivM = <AP::P as Policy>::IndivM;
     type PopE = <AP::P as Policy>::PopInitSE;
     type Pop = <AP::P as Policy>::PopInitS;
     type PopSME = <AP::P as Policy>::PopInitSME;

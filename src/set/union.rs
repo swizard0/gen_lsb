@@ -1,4 +1,4 @@
-use super::{Set, SetManager};
+use super::{Set, SetManager, SetManagerMut};
 
 #[derive(PartialEq, Debug)]
 pub enum Error<ES, ESM> {
@@ -7,11 +7,11 @@ pub enum Error<ES, ESM> {
 }
 
 pub fn union<LC, S, SE, SM, SME>(local_context: &mut LC, mut item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
-    LC: AsMut<SM>,
+    LC: SetManagerMut<SM = SM>,
     S: Set<E = SE>,
     SM: SetManager<S = S, E = SME>
 {
-    let set_manager: &mut SM = local_context.as_mut();
+    let set_manager = local_context.set_manager_mut();
     try!(set_manager.reserve(&mut item_a, item_b.size()).map_err(|e| Error::SetManager(e)));
     for maybe_value in item_b.into_iter() {
         let value = try!(maybe_value.map_err(|e| Error::Set(e)));
@@ -27,7 +27,7 @@ mod tests {
     use std::collections::HashSet;
     use self::rand::Rng;
     use super::{Error, union};
-    use super::super::SetManager;
+    use super::super::{SetManager, SetManagerMut};
     use super::super::vec::Manager;
 
     #[test]
@@ -39,8 +39,10 @@ mod tests {
         let vec_b_clone = vec_b.clone();
 
         struct LocalContext<T>(Manager<T>);
-        impl<T> AsMut<Manager<T>> for LocalContext<T> {
-            fn as_mut(&mut self) -> &mut Manager<T> {
+        impl<T> SetManagerMut for LocalContext<T> {
+            type SM = Manager<T>;
+
+            fn set_manager_mut(&mut self) -> &mut Manager<T> {
                 &mut self.0
             }
         }
@@ -77,8 +79,10 @@ mod tests {
         }
 
         struct LocalContext(LooserManager);
-        impl AsMut<LooserManager> for LocalContext {
-            fn as_mut(&mut self) -> &mut LooserManager {
+        impl SetManagerMut for LocalContext {
+            type SM = LooserManager;
+
+            fn set_manager_mut(&mut self) -> &mut LooserManager {
                 &mut self.0
             }
         }
