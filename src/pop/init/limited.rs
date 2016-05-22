@@ -58,8 +58,8 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
                     try!(set_manager.make_set(None).map_err(|e| GenerateError::SetManager(e)))
                 };
                 let mut indiv_manager = local_context.individual_manager_mut();
-                for _ in input_indices {
-                    let indiv = try!(indiv_manager.generate().map_err(|e| GenerateError::IndividualManager(e)));
+                for index in input_indices {
+                    let indiv = try!(indiv_manager.generate(index).map_err(|e| GenerateError::IndividualManager(e)));
                     try!(population.add(indiv).map_err(|e| GenerateError::Set(e)));
                 }
                 Ok(population)
