@@ -15,7 +15,7 @@ pub fn merge<LC, T, S, SE, SM, SME>(local_context: &mut LC, item_a: S, item_b: S
     let (limit_a, limit_b) = (item_a.size(), item_b.size());
     let set_manager = local_context.set_manager_mut();
     let mut target =
-        try!(set_manager.make_set(limit_a + limit_b).map_err(|e| Error::SetManager(e)));
+        try!(set_manager.make_set(Some(limit_a + limit_b)).map_err(|e| Error::SetManager(e)));
     let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
     let (mut curr_a, mut curr_b) = (iter_a.next(), iter_b.next());
     loop {
@@ -87,7 +87,7 @@ mod tests {
             type S = Vec<u64>;
             type E = LooserManagerError;
 
-            fn make_set(&mut self, _size_hint: usize) -> Result<Self::S, Self::E> {
+            fn make_set(&mut self, _size_hint: Option<usize>) -> Result<Self::S, Self::E> {
                 Err(LooserManagerError)
             }
 

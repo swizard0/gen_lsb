@@ -69,7 +69,7 @@ mod tests {
             type S = Vec<u64>;
             type E = LooserManagerError;
 
-            fn make_set(&mut self, _size_hint: usize) -> Result<Self::S, Self::E> {
+            fn make_set(&mut self, _size_hint: Option<usize>) -> Result<Self::S, Self::E> {
                 Err(LooserManagerError)
             }
 

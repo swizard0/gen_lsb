@@ -55,7 +55,7 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
             move |local_context, input_indices| {
                 let mut population = {
                     let mut set_manager = local_context.set_manager_mut();
-                    try!(set_manager.make_set(0).map_err(|e| GenerateError::SetManager(e)))
+                    try!(set_manager.make_set(None).map_err(|e| GenerateError::SetManager(e)))
                 };
                 let mut indiv_manager = local_context.individual_manager_mut();
                 for _ in input_indices {
