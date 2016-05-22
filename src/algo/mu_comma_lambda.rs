@@ -11,7 +11,8 @@ use super::super::set::{Set, SetManager, SetManagerMut};
 pub trait Policy {
     // individual config
     type Indiv: Individual;
-    type IndivM: IndividualManager<I = Self::Indiv>;
+    type IndivME: Send + 'static;
+    type IndivM: IndividualManager<I = Self::Indiv, E = Self::IndivME>;
 
     // init population config
     type PopInitSE: Send + 'static;
@@ -54,6 +55,7 @@ impl<AP> limited::Policy for PopInitPolicy<AP> where AP: APolicy {
     type LocalContext = LocalContext<AP::P>;
     type Exec = AP::Exec;
     type Indiv = <AP::P as Policy>::Indiv;
+    type IndivME = <AP::P as Policy>::IndivME;
     type IndivM = <AP::P as Policy>::IndivM;
     type PopE = <AP::P as Policy>::PopInitSE;
     type Pop = <AP::P as Policy>::PopInitS;

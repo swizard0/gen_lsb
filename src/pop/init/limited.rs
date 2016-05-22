@@ -10,7 +10,8 @@ pub trait Policy {
     type LocalContext: SetManagerMut<SM = Self::PopSM> + IndividualManagerMut<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
     type Indiv: Individual;
-    type IndivM: IndividualManager<I = Self::Indiv>;
+    type IndivME: Send + 'static;
+    type IndivM: IndividualManager<I = Self::Indiv, E = Self::IndivME>;
     type PopE: Send + 'static;
     type Pop: Set<T = Self::Indiv, E = Self::PopE> + Send + 'static;
     type PopSME: Send + 'static;
@@ -31,9 +32,15 @@ impl<P> LimitedPopulationInit<P> where P: Policy {
     }
 }
 
+pub enum GenerateError<SE, SME, IME> {
+    Set(SE),
+    SetManager(SME),
+    IndividualManager(IME),
+}
+
 pub enum Error<P> where P: Policy {
     NoOutputPopulation,
-    Executor(ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<(), union::Error<P::PopE, P::PopSME>>>),
+    Executor(ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<GenerateError<P::PopE, P::PopSME, P::IndivME>, union::Error<P::PopE, P::PopSME>>>),
 }
 
 impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
@@ -46,10 +53,16 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
         match exec.try_execute_job(
             self.limit,
             move |local_context, input_indices| {
-                let mut set_manager = local_context.set_manager_mut();
+                let mut population = {
+                    let mut set_manager = local_context.set_manager_mut();
+                    try!(set_manager.make_set(0).map_err(|e| GenerateError::SetManager(e)))
+                };
+                let mut indiv_manager = local_context.individual_manager_mut();
                 for _ in input_indices {
+                    let indiv = try!(indiv_manager.generate().map_err(|e| GenerateError::IndividualManager(e)));
+                    try!(population.add(indiv).map_err(|e| GenerateError::Set(e)));
                 }
-                Err(())
+                Ok(population)
             },
             move |local_context, pop_a, pop_b| union::union(local_context, pop_a, pop_b))
         {
