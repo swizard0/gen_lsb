@@ -1,10 +1,7 @@
 
 
-pub trait Individual {
-}
-
 pub trait IndividualManager {
-    type I: Individual;
+    type I;
     type FI;
     type E;
 

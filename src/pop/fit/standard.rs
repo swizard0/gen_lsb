@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationFit;
-use super::super::individual::{Individual, IndividualManager};
+use super::super::individual::IndividualManager;
 use super::super::super::set::{Set, SetManager};
 use super::super::super::set::union;
 
@@ -23,7 +23,7 @@ pub trait Policy {
     type LocalContext: RetrieveFitsManager<FitsM = Self::FitsM> + RetrieveIndividualManager<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
 
-    type Indiv: Individual;
+    type Indiv;
     type Fit;
     type IndivME: Send + 'static;
     type IndivM: IndividualManager<I = Self::Indiv, FI = Self::Fit, E = Self::IndivME>;
@@ -97,4 +97,15 @@ impl<P> PopulationFit for StandardPopulationFit<P> where P: Policy {
             Err(e) => Err(Error::Executor(e)),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use par_exec::Executor;
+    use par_exec::par::ParallelExecutor;
+    use super::super::super::super::set;
+    use super::super::PopulationFit;
+    use super::super::super::individual::{Individual, IndividualManager};
+    use super::{Policy, StandardPopulationFit, RetrieveFitsManager, RetrieveIndividualManager};
+
 }

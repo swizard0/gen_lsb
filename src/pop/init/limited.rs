@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationInit;
-use super::super::individual::{Individual, IndividualManager};
+use super::super::individual::IndividualManager;
 use super::super::super::set::{Set, SetManager};
 use super::super::super::set::union;
 
@@ -21,7 +21,7 @@ pub trait RetrieveIndividualManager {
 pub trait Policy {
     type LocalContext: RetrievePopulationManager<PopM = Self::PopSM> + RetrieveIndividualManager<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
-    type Indiv: Individual;
+    type Indiv;
     type IndivME: Send + 'static;
     type IndivM: IndividualManager<I = Self::Indiv, E = Self::IndivME>;
     type PopE: Send + 'static;
@@ -95,21 +95,17 @@ mod tests {
     use par_exec::par::ParallelExecutor;
     use super::super::super::super::set;
     use super::super::PopulationInit;
-    use super::super::super::individual::{Individual, IndividualManager};
+    use super::super::super::individual::IndividualManager;
     use super::{Policy, LimitedPopulationInit, RetrievePopulationManager, RetrieveIndividualManager};
-
-    #[derive(PartialEq, PartialOrd, Ord, Eq, Debug)]
-    struct Indiv(usize);
-    impl Individual for Indiv {}
 
     struct IndivManager;
     impl IndividualManager for IndivManager {
-        type I = Indiv;
+        type I = usize;
         type FI = ();
         type E = ();
 
         fn generate(&mut self, index: usize) -> Result<Self::I, Self::E> {
-            Ok(Indiv(index))
+            Ok(index)
         }
 
         fn fitness(&mut self, _indiv: &Self::I) -> Result<Self::FI, Self::E> {
@@ -118,12 +114,12 @@ mod tests {
     }
 
     struct LocalContext {
-        set_manager: set::vec::Manager<Indiv>,
+        set_manager: set::vec::Manager<usize>,
         indiv_manager: IndivManager,
     }
 
     impl RetrievePopulationManager for LocalContext {
-        type PopM = set::vec::Manager<Indiv>;
+        type PopM = set::vec::Manager<usize>;
 
         fn retrieve(&mut self) -> &mut Self::PopM {
             &mut self.set_manager
@@ -142,13 +138,13 @@ mod tests {
     impl Policy for TestPolicy {
         type LocalContext = LocalContext;
         type Exec = ParallelExecutor<LocalContext>;
-        type Indiv = Indiv;
+        type Indiv = usize;
         type IndivME = ();
         type IndivM = IndivManager;
         type PopE = set::vec::Error;
-        type Pop = Vec<Indiv>;
+        type Pop = Vec<usize>;
         type PopSME = ();
-        type PopSM = set::vec::Manager<Indiv>;
+        type PopSM = set::vec::Manager<usize>;
     }
 
     #[test]
@@ -163,6 +159,6 @@ mod tests {
             LimitedPopulationInit::new(1024);
         let mut population = initializer.init(&mut exec).unwrap();
         population.sort();
-        assert_eq!(population, (0 .. 1024).map(|i| Indiv(i)).collect::<Vec<_>>());
+        assert_eq!(population, (0 .. 1024).collect::<Vec<_>>());
     }
 }

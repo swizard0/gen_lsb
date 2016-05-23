@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use par_exec::{Executor, LocalContextBuilder, ExecutorNewError};
 
 use super::Algorithm;
-use super::super::pop::individual::{Individual, IndividualManager};
+use super::super::pop::individual::IndividualManager;
 use super::super::pop::init::PopulationInit;
 use super::super::pop::init::limited;
 use super::super::set::{Set, SetManager};
@@ -10,7 +10,7 @@ use super::super::set::{Set, SetManager};
 // common policy
 pub trait Policy {
     // individual config
-    type Indiv: Individual;
+    type Indiv;
     type IndivME: Send + 'static;
     type IndivM: IndividualManager<I = Self::Indiv, E = Self::IndivME>;
 
