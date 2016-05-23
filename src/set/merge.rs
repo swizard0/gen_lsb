@@ -13,7 +13,7 @@ pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, item_a: S, item_b: S) -> R
 {
     let (limit_a, limit_b) = (item_a.size(), item_b.size());
     let mut target =
-        try!(set_manager.make_set(Some(limit_a + limit_b)).map_err(|e| Error::SetManager(e)));
+        try!(set_manager.make_set(Some(limit_a + limit_b)).map_err(Error::SetManager));
     let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
     let (mut curr_a, mut curr_b) = (iter_a.next(), iter_b.next());
     loop {
@@ -35,7 +35,7 @@ pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, item_a: S, item_b: S) -> R
 
         curr_a = next_a;
         curr_b = next_b;
-        try!(target.add(value).map_err(|e| Error::Set(e)));
+        try!(target.add(value).map_err(Error::Set));
     }
 }
 

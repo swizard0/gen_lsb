@@ -136,11 +136,11 @@ impl<AP> Algorithm for MuCommaLambda<AP> where AP: APolicy {
 
     fn run(self, not_started_executor: Self::Exec) -> Result<Self::Res, Self::Err> {
         let mut executor =
-            try!(not_started_executor.try_start(self.lc_builder).map_err(|e| Error::ExecutorStart(e)));
-        let init_population = try!(self.pop_init.init(&mut executor).map_err(|e| Error::PopulationInit(e)));
+            try!(not_started_executor.try_start(self.lc_builder).map_err(Error::ExecutorStart));
+        let init_population = try!(self.pop_init.init(&mut executor).map_err(Error::PopulationInit));
 
         let current_population = Arc::new(init_population);
-        let _fit_results = try!(self.pop_fit.fit(current_population.clone(), &mut executor).map_err(|e| Error::PopulationFit(e)));
+        let _fit_results = try!(self.pop_fit.fit(current_population.clone(), &mut executor).map_err(Error::PopulationFit));
 
         Err(Error::Dummy)
     }

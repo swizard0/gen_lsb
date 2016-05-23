@@ -71,12 +71,12 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
             move |local_context, input_indices| {
                 let mut population = {
                     let mut set_manager = <P::LocalContext as RetrievePopulationManager>::retrieve(local_context);
-                    try!(set_manager.make_set(None).map_err(|e| GenerateError::SetManager(e)))
+                    try!(set_manager.make_set(None).map_err(GenerateError::SetManager))
                 };
                 let mut indiv_manager = <P::LocalContext as RetrieveIndividualManager>::retrieve(local_context);
                 for index in input_indices {
-                    let indiv = try!(indiv_manager.generate(index).map_err(|e| GenerateError::IndividualManager(e)));
-                    try!(population.add(indiv).map_err(|e| GenerateError::Set(e)));
+                    let indiv = try!(indiv_manager.generate(index).map_err(GenerateError::IndividualManager));
+                    try!(population.add(indiv).map_err(GenerateError::Set));
                 }
                 Ok(population)
             },

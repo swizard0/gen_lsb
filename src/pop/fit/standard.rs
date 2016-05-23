@@ -80,13 +80,13 @@ impl<P> PopulationFit for StandardPopulationFit<P> where P: Policy {
             move |local_context, input_indices| {
                 let mut fitness_results = {
                     let mut set_manager = <P::LocalContext as RetrieveFitsManager>::retrieve(local_context);
-                    try!(set_manager.make_set(Some(population_size)).map_err(|e| FitnessError::FitsSetManager(e)))
+                    try!(set_manager.make_set(Some(population_size)).map_err(FitnessError::FitsSetManager))
                 };
                 let mut indiv_manager = <P::LocalContext as RetrieveIndividualManager>::retrieve(local_context);
                 for index in input_indices {
-                    let indiv = try!(population.get(index).map_err(|e| FitnessError::Population(e)));
-                    let fitness = try!(indiv_manager.fitness(indiv).map_err(|e| FitnessError::IndividualManager(e)));
-                    try!(fitness_results.add((fitness, index)).map_err(|e| FitnessError::FitsSet(e)));
+                    let indiv = try!(population.get(index).map_err(FitnessError::Population));
+                    let fitness = try!(indiv_manager.fitness(indiv).map_err(FitnessError::IndividualManager));
+                    try!(fitness_results.add((fitness, index)).map_err(FitnessError::FitsSet));
                 }
                 Ok(fitness_results)
             },
