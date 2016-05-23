@@ -105,7 +105,80 @@ mod tests {
     use par_exec::par::ParallelExecutor;
     use super::super::super::super::set;
     use super::super::PopulationFit;
-    use super::super::super::individual::{Individual, IndividualManager};
+    use super::super::super::individual::IndividualManager;
     use super::{Policy, StandardPopulationFit, RetrieveFitsManager, RetrieveIndividualManager};
 
+    struct IndivManager;
+    impl IndividualManager for IndivManager {
+        type I = usize;
+        type FI = f64;
+        type E = ();
+
+        fn generate(&mut self, index: usize) -> Result<Self::I, Self::E> {
+            Ok(index)
+        }
+
+        fn fitness(&mut self, indiv: &Self::I) -> Result<Self::FI, Self::E> {
+            Ok(1.0 / *indiv as f64)
+        }
+    }
+
+    struct LocalContext {
+        set_manager: set::vec::Manager<(f64, usize)>,
+        indiv_manager: IndivManager,
+    }
+
+    impl RetrieveFitsManager for LocalContext {
+        type FitsM = set::vec::Manager<(f64, usize)>;
+
+        fn retrieve(&mut self) -> &mut Self::FitsM {
+            &mut self.set_manager
+        }
+    }
+
+    impl RetrieveIndividualManager for LocalContext {
+        type IM = IndivManager;
+
+        fn retrieve(&mut self) -> &mut Self::IM {
+            &mut self.indiv_manager
+        }
+    }
+
+    struct TestPolicy;
+    impl Policy for TestPolicy {
+        type LocalContext = LocalContext;
+        type Exec = ParallelExecutor<LocalContext>;
+
+        type Indiv = usize;
+        type Fit = f64;
+        type IndivME = ();
+        type IndivM = IndivManager;
+
+        type PopE = set::vec::Error;
+        type Pop = Vec<usize>;
+
+        type FitsE = set::vec::Error;
+        type Fits = Vec<(f64, usize)>;
+        type FitsME = ();
+        type FitsM = set::vec::Manager<(f64, usize)>;
+    }
+
+    #[test]
+    fn parallel_fitness() {
+        let exec: ParallelExecutor<_> = Default::default();
+        let mut exec = exec.start(|| LocalContext {
+            set_manager: set::vec::Manager::new(),
+            indiv_manager: IndivManager,
+        }).unwrap();
+
+        use std::sync::Arc;
+        let population = Arc::new((0 .. 1024).collect::<Vec<_>>());
+
+        let fitness_calculator: StandardPopulationFit<TestPolicy> =
+            StandardPopulationFit::new();
+        let mut fit_results =
+            fitness_calculator.fit(population.clone(), &mut exec).unwrap();
+        fit_results.sort_by_key(|v| v.1);
+        assert_eq!(Arc::new(fit_results.into_iter().map(|(_, i)| i).collect::<Vec<_>>()), population);
+    }
 }
