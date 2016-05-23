@@ -39,3 +39,7 @@ extern crate gen_lsb;
 
 // TODO: add a small and cute example
 ```
+
+## License
+
+MIT license ([LICENSE-MIT](LICENSE) or http://opensource.org/licenses/MIT)
