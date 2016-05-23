@@ -79,7 +79,7 @@ impl<AP> MuCommaLambda<AP> where AP: APolicy {
 
 pub enum Error<AP> where AP: APolicy {
     ExecutorStart(ExecutorNewError<<AP::Exec as Executor>::E, <AP::LCBuilder as LocalContextBuilder>::E>),
-    PopulationInit(limited::Error<PopInitPolicy<AP>>),
+    PopulationInit(limited::ErrorP<PopInitPolicy<AP>>),
 
     Dummy
 }

@@ -32,22 +32,26 @@ impl<P> LimitedPopulationInit<P> where P: Policy {
     }
 }
 
+#[derive(Debug)]
 pub enum GenerateError<SE, SME, IME> {
     Set(SE),
     SetManager(SME),
     IndividualManager(IME),
 }
 
-pub enum Error<P> where P: Policy {
+#[derive(Debug)]
+pub enum Error<ExecE, PopE, PopSME, IndivME> {
     NoOutputPopulation,
-    Executor(ExecutorJobError<<P::Exec as Executor>::E, JobExecuteError<GenerateError<P::PopE, P::PopSME, P::IndivME>, union::Error<P::PopE, P::PopSME>>>),
+    Executor(ExecutorJobError<ExecE, JobExecuteError<GenerateError<PopE, PopSME, IndivME>, union::Error<PopE, PopSME>>>),
 }
+
+pub type ErrorP<P> where P: Policy = Error<<P::Exec as Executor>::E, P::PopE, P::PopSME, P::IndivME>;
 
 impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     type Exec = P::Exec;
     type Indiv = P::Indiv;
     type Pop = P::Pop;
-    type Err = Error<P>;
+    type Err = ErrorP<P>;
 
     fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
         match exec.try_execute_job(
@@ -70,5 +74,83 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
             Ok(Some(population)) => Ok(population),
             Err(e) => Err(Error::Executor(e)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use par_exec::Executor;
+    use par_exec::par::ParallelExecutor;
+    use super::super::super::super::set;
+    use super::super::PopulationInit;
+    use super::super::super::individual::{Individual, IndividualManager, IndividualManagerMut};
+    use super::{Policy, LimitedPopulationInit};
+
+    #[derive(PartialEq, PartialOrd, Ord, Eq, Debug)]
+    struct Indiv(usize);
+    impl Individual for Indiv {}
+
+    struct IndivManager;
+    impl IndividualManager for IndivManager {
+        type I = Indiv;
+        type FI = ();
+        type E = ();
+
+        fn generate(&mut self, index: usize) -> Result<Self::I, Self::E> {
+            Ok(Indiv(index))
+        }
+
+        fn fitness(&mut self, _indiv: &Self::I) -> Result<Self::FI, Self::E> {
+            Ok(())
+        }
+    }
+
+    struct LocalContext {
+        set_manager: set::vec::Manager<Indiv>,
+        indiv_manager: IndivManager,
+    }
+
+    impl set::SetManagerMut for LocalContext {
+        type SM = set::vec::Manager<Indiv>;
+
+        fn set_manager_mut(&mut self) -> &mut Self::SM {
+            &mut self.set_manager
+        }
+    }
+
+    impl IndividualManagerMut for LocalContext {
+        type IM = IndivManager;
+
+        fn individual_manager_mut(&mut self) -> &mut Self::IM {
+            &mut self.indiv_manager
+        }
+    }
+
+    struct TestPolicy;
+    impl Policy for TestPolicy {
+        type LocalContext = LocalContext;
+        type Exec = ParallelExecutor<LocalContext>;
+        type Indiv = Indiv;
+        type IndivME = ();
+        type IndivM = IndivManager;
+        type PopE = set::vec::Error;
+        type Pop = Vec<Indiv>;
+        type PopSME = ();
+        type PopSM = set::vec::Manager<Indiv>;
+    }
+
+    #[test]
+    fn parallel_generator() {
+        let exec: ParallelExecutor<_> = Default::default();
+        let mut exec = exec.start(|| LocalContext {
+            set_manager: set::vec::Manager::new(),
+            indiv_manager: IndivManager,
+        }).unwrap();
+
+        let initializer: LimitedPopulationInit<TestPolicy> =
+            LimitedPopulationInit::new(1024);
+        let mut population = initializer.init(&mut exec).unwrap();
+        population.sort();
+        assert_eq!(population, (0 .. 1024).map(|i| Indiv(i)).collect::<Vec<_>>());
     }
 }

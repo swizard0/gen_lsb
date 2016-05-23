@@ -1,7 +1,6 @@
 
 
 pub trait Individual {
-    type E;
 }
 
 pub trait IndividualManager {
