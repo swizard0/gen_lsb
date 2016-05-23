@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use par_exec::Executor;
 
 pub mod standard;
@@ -13,5 +14,5 @@ pub trait PopulationFit {
     type Fits: Set<T = (Self::Fit, usize)>;
     type Err;
 
-    fn fit(&self, population: &Self::Pop, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err>;
+    fn fit(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err>;
 }

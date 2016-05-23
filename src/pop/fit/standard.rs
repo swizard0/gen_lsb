@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
@@ -28,7 +29,7 @@ pub trait Policy {
     type IndivM: IndividualManager<I = Self::Indiv, FI = Self::Fit, E = Self::IndivME>;
 
     type PopE: Send + 'static;
-    type Pop: Set<T = Self::Indiv, E = Self::PopE>;
+    type Pop: Set<T = Self::Indiv, E = Self::PopE> + Sync + Send + 'static;
 
     type FitsE: Send + 'static;
     type Fits: Set<T = (Self::Fit, usize), E = Self::FitsE> + Send + 'static;
@@ -72,7 +73,28 @@ impl<P> PopulationFit for StandardPopulationFit<P> where P: Policy {
     type Fits = P::Fits;
     type Err = ErrorP<P>;
 
-    fn fit(&self, _population: &Self::Pop, _exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err> {
-        Err(Error::NoOutputFitnessValues::<<Self::Exec as Executor>::E, P::PopE, P::FitsE, P::FitsME, P::IndivME>)
+    fn fit(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err> {
+        let population_size = population.size();
+        match exec.try_execute_job(
+            population_size,
+            move |local_context, input_indices| {
+                let mut fitness_results = {
+                    let mut set_manager = <P::LocalContext as RetrieveFitsManager>::retrieve(local_context);
+                    try!(set_manager.make_set(Some(population_size)).map_err(|e| FitnessError::FitsSetManager(e)))
+                };
+                let mut indiv_manager = <P::LocalContext as RetrieveIndividualManager>::retrieve(local_context);
+                for index in input_indices {
+                    let indiv = try!(population.get(index).map_err(|e| FitnessError::Population(e)));
+                    let fitness = try!(indiv_manager.fitness(indiv).map_err(|e| FitnessError::IndividualManager(e)));
+                    try!(fitness_results.add((fitness, index)).map_err(|e| FitnessError::FitsSet(e)));
+                }
+                Ok(fitness_results)
+            },
+            move |local_context, fits_a, fits_b| union::union(<P::LocalContext as RetrieveFitsManager>::retrieve(local_context), fits_a, fits_b))
+        {
+            Ok(None) => Err(Error::NoOutputFitnessValues),
+            Ok(Some(fitness_results)) => Ok(fitness_results),
+            Err(e) => Err(Error::Executor(e)),
+        }
     }
 }
