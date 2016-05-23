@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationFit;
-use super::super::individual::{Individual, IndividualManager, IndividualManagerMut};
-use super::super::super::set::{Set, SetManager, SetManagerMut};
+use super::super::individual::{Individual, IndividualManager};
+use super::super::super::set::{Set, SetManager};
 use super::super::super::set::union;
 
 pub trait Policy {

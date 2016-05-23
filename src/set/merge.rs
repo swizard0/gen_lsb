@@ -1,4 +1,4 @@
-use super::{Set, SetManager, SetManagerMut};
+use super::{Set, SetManager};
 
 #[derive(PartialEq, Debug)]
 pub enum Error<ES, ESM> {
@@ -6,14 +6,12 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub fn merge<LC, T, S, SE, SM, SME>(local_context: &mut LC, item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
-    LC: SetManagerMut<SM = SM>,
+pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
     T: PartialOrd,
     S: Set<T = T, E = SE>,
     SM: SetManager<S = S, E = SME>
 {
     let (limit_a, limit_b) = (item_a.size(), item_b.size());
-    let set_manager = local_context.set_manager_mut();
     let mut target =
         try!(set_manager.make_set(Some(limit_a + limit_b)).map_err(|e| Error::SetManager(e)));
     let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
@@ -47,7 +45,7 @@ mod tests {
 
     use self::rand::Rng;
     use super::{Error, merge};
-    use super::super::{SetManager, SetManagerMut};
+    use super::super::SetManager;
     use super::super::vec::Manager;
 
     #[test]
@@ -58,18 +56,8 @@ mod tests {
         vec_a.sort();
         vec_b.sort();
 
-        struct LocalContext<T>(Manager<T>);
-        impl<T> SetManagerMut for LocalContext<T> {
-            type SM = Manager<T>;
-
-            fn set_manager_mut(&mut self) -> &mut Manager<T> {
-                &mut self.0
-            }
-        }
-
-        let mut local_context = LocalContext(Manager::new());
-
-        let vec_c = merge(&mut local_context, vec_a, vec_b).unwrap();
+        let mut set_manager = Manager::new();
+        let vec_c = merge(&mut set_manager, vec_a, vec_b).unwrap();
         assert_eq!(vec_c.len(), 1024 + 768);
 
         for i in 1 .. 1024 + 768 {
@@ -96,16 +84,7 @@ mod tests {
             }
         }
 
-        struct LocalContext(LooserManager);
-        impl SetManagerMut for LocalContext {
-            type SM = LooserManager;
-
-            fn set_manager_mut(&mut self) -> &mut LooserManager {
-                &mut self.0
-            }
-        }
-
-        let mut local_context = LocalContext(LooserManager);
-        assert_eq!(merge(&mut local_context, vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
+        let mut set_manager = LooserManager;
+        assert_eq!(merge(&mut set_manager, vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
     }
 }

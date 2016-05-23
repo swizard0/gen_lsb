@@ -24,9 +24,3 @@ pub trait SetManager {
         Ok(())
     }
 }
-
-pub trait SetManagerMut {
-    type SM: SetManager;
-
-    fn set_manager_mut(&mut self) -> &mut Self::SM;
-}

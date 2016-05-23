@@ -2,12 +2,24 @@ use std::marker::PhantomData;
 use par_exec::{Executor, ExecutorJobError, JobExecuteError};
 
 use super::PopulationInit;
-use super::super::individual::{Individual, IndividualManager, IndividualManagerMut};
-use super::super::super::set::{Set, SetManager, SetManagerMut};
+use super::super::individual::{Individual, IndividualManager};
+use super::super::super::set::{Set, SetManager};
 use super::super::super::set::union;
 
+pub trait RetrievePopulation {
+    type Pop;
+
+    fn retrieve(&mut self) -> &mut Self::Pop;
+}
+
+pub trait RetrieveIndividualManager {
+    type IM;
+
+    fn retrieve(&mut self) -> &mut Self::IM;
+}
+
 pub trait Policy {
-    type LocalContext: SetManagerMut<SM = Self::PopSM> + IndividualManagerMut<IM = Self::IndivM>;
+    type LocalContext: RetrievePopulation<Pop = Self::PopSM> + RetrieveIndividualManager<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
     type Indiv: Individual;
     type IndivME: Send + 'static;
@@ -58,17 +70,17 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
             self.limit,
             move |local_context, input_indices| {
                 let mut population = {
-                    let mut set_manager = local_context.set_manager_mut();
+                    let mut set_manager = <P::LocalContext as RetrievePopulation>::retrieve(local_context);
                     try!(set_manager.make_set(None).map_err(|e| GenerateError::SetManager(e)))
                 };
-                let mut indiv_manager = local_context.individual_manager_mut();
+                let mut indiv_manager = <P::LocalContext as RetrieveIndividualManager>::retrieve(local_context);
                 for index in input_indices {
                     let indiv = try!(indiv_manager.generate(index).map_err(|e| GenerateError::IndividualManager(e)));
                     try!(population.add(indiv).map_err(|e| GenerateError::Set(e)));
                 }
                 Ok(population)
             },
-            move |local_context, pop_a, pop_b| union::union(local_context, pop_a, pop_b))
+            move |local_context, pop_a, pop_b| union::union(<P::LocalContext as RetrievePopulation>::retrieve(local_context), pop_a, pop_b))
         {
             Ok(None) => Err(Error::NoOutputPopulation),
             Ok(Some(population)) => Ok(population),
@@ -83,8 +95,8 @@ mod tests {
     use par_exec::par::ParallelExecutor;
     use super::super::super::super::set;
     use super::super::PopulationInit;
-    use super::super::super::individual::{Individual, IndividualManager, IndividualManagerMut};
-    use super::{Policy, LimitedPopulationInit};
+    use super::super::super::individual::{Individual, IndividualManager};
+    use super::{Policy, LimitedPopulationInit, RetrievePopulation, RetrieveIndividualManager};
 
     #[derive(PartialEq, PartialOrd, Ord, Eq, Debug)]
     struct Indiv(usize);
@@ -110,18 +122,18 @@ mod tests {
         indiv_manager: IndivManager,
     }
 
-    impl set::SetManagerMut for LocalContext {
-        type SM = set::vec::Manager<Indiv>;
+    impl RetrievePopulation for LocalContext {
+        type Pop = set::vec::Manager<Indiv>;
 
-        fn set_manager_mut(&mut self) -> &mut Self::SM {
+        fn retrieve(&mut self) -> &mut Self::Pop {
             &mut self.set_manager
         }
     }
 
-    impl IndividualManagerMut for LocalContext {
+    impl RetrieveIndividualManager for LocalContext {
         type IM = IndivManager;
 
-        fn individual_manager_mut(&mut self) -> &mut Self::IM {
+        fn retrieve(&mut self) -> &mut Self::IM {
             &mut self.indiv_manager
         }
     }

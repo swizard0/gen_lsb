@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 use par_exec::{Executor, LocalContextBuilder, ExecutorNewError};
 
 use super::Algorithm;
-use super::super::pop::individual::{Individual, IndividualManager, IndividualManagerMut};
+use super::super::pop::individual::{Individual, IndividualManager};
 use super::super::pop::init::PopulationInit;
 use super::super::pop::init::limited;
-use super::super::set::{Set, SetManager, SetManagerMut};
+use super::super::set::{Set, SetManager};
 
 // common policy
 pub trait Policy {
@@ -26,18 +26,18 @@ pub struct LocalContext<P> where P: Policy {
     pop_set_manager: P::PopSM,
 }
 
-impl<P> SetManagerMut for LocalContext<P> where P: Policy {
-    type SM = P::PopSM;
+impl<P> limited::RetrievePopulation for LocalContext<P> where P: Policy {
+    type Pop = P::PopSM;
 
-    fn set_manager_mut(&mut self) -> &mut Self::SM {
+    fn retrieve(&mut self) -> &mut Self::Pop {
         &mut self.pop_set_manager
     }
 }
 
-impl<P> IndividualManagerMut for LocalContext<P> where P: Policy {
+impl<P> limited::RetrieveIndividualManager for LocalContext<P> where P: Policy {
     type IM = P::IndivM;
 
-    fn individual_manager_mut(&mut self) -> &mut Self::IM {
+    fn retrieve(&mut self) -> &mut Self::IM {
         &mut self.indiv_manager
     }
 }
