@@ -6,8 +6,20 @@ use super::super::individual::{Individual, IndividualManager};
 use super::super::super::set::{Set, SetManager};
 use super::super::super::set::union;
 
+pub trait RetrieveFitsManager {
+    type FitsM;
+
+    fn retrieve(&mut self) -> &mut Self::FitsM;
+}
+
+pub trait RetrieveIndividualManager {
+    type IM;
+
+    fn retrieve(&mut self) -> &mut Self::IM;
+}
+
 pub trait Policy {
-    type LocalContext ; //: IndividualManagerMut<IM = Self::IndivM> + SetManagerMut<SM = Self::PopSM> + SetManagerMut<SM = Self::FitsSM>;
+    type LocalContext: RetrieveFitsManager<FitsM = Self::FitsM> + RetrieveIndividualManager<IM = Self::IndivM>;
     type Exec: Executor<LC = Self::LocalContext>;
 
     type Indiv: Individual;
@@ -17,11 +29,9 @@ pub trait Policy {
 
     type PopE: Send + 'static;
     type Pop: Set<T = Self::Indiv, E = Self::PopE>;
-    type PopSME: Send + 'static;
-    type PopSM: SetManager<S = Self::Pop, E = Self::PopSME>;
 
     type FitsE: Send + 'static;
     type Fits: Set<T = (Self::Fit, usize), E = Self::FitsE> + Send + 'static;
-    type FitsSME: Send + 'static;
-    type FitsSM: SetManager<S = Self::Fits, E = Self::FitsSME>;
+    type FitsME: Send + 'static;
+    type FitsM: SetManager<S = Self::Fits, E = Self::FitsME>;
 }
