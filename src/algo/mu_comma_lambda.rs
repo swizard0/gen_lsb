@@ -26,10 +26,10 @@ pub struct LocalContext<P> where P: Policy {
     pop_set_manager: P::PopSM,
 }
 
-impl<P> limited::RetrievePopulation for LocalContext<P> where P: Policy {
-    type Pop = P::PopSM;
+impl<P> limited::RetrievePopulationManager for LocalContext<P> where P: Policy {
+    type PopM = P::PopSM;
 
-    fn retrieve(&mut self) -> &mut Self::Pop {
+    fn retrieve(&mut self) -> &mut Self::PopM {
         &mut self.pop_set_manager
     }
 }
