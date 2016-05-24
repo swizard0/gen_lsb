@@ -6,16 +6,16 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub fn union<S, SE, SM, SME>(set_manager: &mut SM, mut item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
+pub fn union<S, SE, SM, SME>(set_manager: &mut SM, mut set_a: S, set_b: S) -> Result<S, Error<SE, SME>> where
     S: Set<E = SE>,
     SM: SetManager<S = S, E = SME>
 {
-    try!(set_manager.reserve(&mut item_a, item_b.size()).map_err(Error::SetManager));
-    for maybe_value in item_b.into_iter() {
+    try!(set_manager.reserve(&mut set_a, set_b.size()).map_err(Error::SetManager));
+    for maybe_value in set_b.into_iter() {
         let value = try!(maybe_value.map_err(Error::Set));
-        try!(item_a.add(value).map_err(Error::Set));
+        try!(set_a.add(value).map_err(Error::Set));
     }
-    Ok(item_a)
+    Ok(set_a)
 }
 
 #[cfg(test)]

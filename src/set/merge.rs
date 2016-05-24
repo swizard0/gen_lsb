@@ -6,15 +6,15 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, item_a: S, item_b: S) -> Result<S, Error<SE, SME>> where
+pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, set_a: S, set_b: S) -> Result<S, Error<SE, SME>> where
     T: PartialOrd,
     S: Set<T = T, E = SE>,
     SM: SetManager<S = S, E = SME>
 {
-    let (limit_a, limit_b) = (item_a.size(), item_b.size());
+    let (limit_a, limit_b) = (set_a.size(), set_b.size());
     let mut target =
         try!(set_manager.make_set(Some(limit_a + limit_b)).map_err(Error::SetManager));
-    let (mut iter_a, mut iter_b) = (item_a.into_iter(), item_b.into_iter());
+    let (mut iter_a, mut iter_b) = (set_a.into_iter(), set_b.into_iter());
     let (mut curr_a, mut curr_b) = (iter_a.next(), iter_b.next());
     loop {
         let (value, next_a, next_b) = match (curr_a, curr_b) {
