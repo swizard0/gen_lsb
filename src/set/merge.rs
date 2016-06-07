@@ -6,10 +6,10 @@ pub enum Error<ES, ESM> {
     SetManager(ESM),
 }
 
-pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, set_a: S, set_b: S) -> Result<S, Error<SE, SME>> where
-    T: PartialOrd,
+pub fn merge<T, S, SE, SM, SME, F>(set_manager: &mut SM, set_a: S, set_b: S, mut pred: F) -> Result<S, Error<SE, SME>> where
     S: Set<T = T, E = SE>,
-    SM: SetManager<S = S, E = SME>
+    SM: SetManager<S = S, E = SME>,
+    F: FnMut(&T, &T) -> bool
 {
     let (limit_a, limit_b) = (set_a.size(), set_b.size());
     let mut target =
@@ -26,7 +26,7 @@ pub fn merge<T, S, SE, SM, SME>(set_manager: &mut SM, set_a: S, set_b: S) -> Res
                 (value_b, None, iter_b.next()),
             (Some(Ok(value_a)), None) =>
                 (value_a, iter_a.next(), None),
-            (Some(Ok(value_a)), Some(Ok(value_b))) => if value_a < value_b {
+            (Some(Ok(value_a)), Some(Ok(value_b))) => if pred(&value_a, &value_b) {
                 (value_a, iter_a.next(), Some(Ok(value_b)))
             } else {
                 (value_b, Some(Ok(value_a)), iter_b.next())
@@ -57,7 +57,7 @@ mod tests {
         vec_b.sort();
 
         let mut set_manager = Manager::new();
-        let vec_c = merge(&mut set_manager, vec_a, vec_b).unwrap();
+        let vec_c = merge(&mut set_manager, vec_a, vec_b, |a, b| a < b).unwrap();
         assert_eq!(vec_c.len(), 1024 + 768);
 
         for i in 1 .. 1024 + 768 {
@@ -85,6 +85,6 @@ mod tests {
         }
 
         let mut set_manager = LooserManager;
-        assert_eq!(merge(&mut set_manager, vec![1, 2], vec![3, 4, 5]), Err(Error::SetManager(LooserManagerError)));
+        assert_eq!(merge(&mut set_manager, vec![1, 2], vec![3, 4, 5], |a, b| a < b), Err(Error::SetManager(LooserManagerError)));
     }
 }
