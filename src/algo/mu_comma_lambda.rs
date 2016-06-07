@@ -76,6 +76,7 @@ pub trait APolicy {
     type Exec: Executor<LC = LocalContext<Self::P>>;
     type InitWA: WorkAmount;
     type FitWA: WorkAmount;
+    type SortWA: WorkAmount;
 }
 
 pub struct PopInitPolicy<AP>(PhantomData<AP>) where AP: APolicy;
@@ -134,7 +135,8 @@ pub enum Error<AP> where AP: APolicy {
 impl<AP> Algorithm for MuCommaLambda<AP> where
     AP: APolicy,
     <AP::Exec as Executor>::JIB: JobIterBuild<AP::InitWA>,
-    <AP::Exec as Executor>::JIB: JobIterBuild<AP::FitWA>
+    <AP::Exec as Executor>::JIB: JobIterBuild<AP::FitWA>,
+    <AP::Exec as Executor>::JIB: JobIterBuild<AP::SortWA>
 {
     type Exec = AP::Exec;
     type Res = <AP::P as Policy>::Indiv;
@@ -146,7 +148,7 @@ impl<AP> Algorithm for MuCommaLambda<AP> where
         let init_population = try!(self.pop_init.init::<AP::InitWA>(&mut executor).map_err(Error::PopulationInit));
 
         let current_population = Arc::new(init_population);
-        let _fit_results = try!(self.pop_fit.fit::<AP::FitWA>(current_population.clone(), &mut executor).map_err(Error::PopulationFit));
+        let _fit_results = Arc::new(try!(self.pop_fit.fit::<AP::FitWA>(current_population.clone(), &mut executor).map_err(Error::PopulationFit)));
 
         Err(Error::Dummy)
     }
