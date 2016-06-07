@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use par_exec::{Executor, ExecutorJobError, JobExecuteError};
+use par_exec::{Executor, WorkAmount, JobIterBuild, ExecutorJobError, JobExecuteError};
 
 use super::PopulationInit;
 use super::super::individual::IndividualManager;
@@ -65,9 +65,11 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
     type Pop = P::Pop;
     type Err = ErrorP<P>;
 
-    fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err> {
+    fn init<WA>(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err>
+        where WA: WorkAmount, <Self::Exec as Executor>::JIB: JobIterBuild<WA>
+    {
         match exec.try_execute_job(
-            self.limit,
+            WA::new(self.limit),
             move |local_context, input_indices| {
                 let mut population = {
                     let mut set_manager = <P::LocalContext as RetrievePopulationManager>::retrieve(local_context);
@@ -92,7 +94,7 @@ impl<P> PopulationInit for LimitedPopulationInit<P> where P: Policy {
 #[cfg(test)]
 mod tests {
     use par_exec::Executor;
-    use par_exec::par::ParallelExecutor;
+    use par_exec::par::{ParallelExecutor, Alternately};
     use super::super::super::super::set;
     use super::super::PopulationInit;
     use super::super::super::individual::IndividualManager;
@@ -157,7 +159,7 @@ mod tests {
 
         let initializer: LimitedPopulationInit<TestPolicy> =
             LimitedPopulationInit::new(1024);
-        let mut population = initializer.init(&mut exec).unwrap();
+        let mut population = initializer.init::<Alternately>(&mut exec).unwrap();
         population.sort();
         assert_eq!(population, (0 .. 1024).collect::<Vec<_>>());
     }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::marker::PhantomData;
-use par_exec::{Executor, ExecutorJobError, JobExecuteError};
+use par_exec::{Executor, WorkAmount, JobIterBuild, ExecutorJobError, JobExecuteError};
 
 use super::PopulationFit;
 use super::super::individual::IndividualManager;
@@ -73,10 +73,12 @@ impl<P> PopulationFit for StandardPopulationFit<P> where P: Policy {
     type Fits = P::Fits;
     type Err = ErrorP<P>;
 
-    fn fit(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err> {
+    fn fit<WA>(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err>
+        where WA: WorkAmount, <Self::Exec as Executor>::JIB: JobIterBuild<WA>
+    {
         let population_size = population.size();
         match exec.try_execute_job(
-            population_size,
+            WA::new(population_size),
             move |local_context, input_indices| {
                 let mut fitness_results = {
                     let mut set_manager = <P::LocalContext as RetrieveFitsManager>::retrieve(local_context);
@@ -102,7 +104,7 @@ impl<P> PopulationFit for StandardPopulationFit<P> where P: Policy {
 #[cfg(test)]
 mod tests {
     use par_exec::Executor;
-    use par_exec::par::ParallelExecutor;
+    use par_exec::par::{ParallelExecutor, Alternately};
     use super::super::super::super::set;
     use super::super::PopulationFit;
     use super::super::super::individual::IndividualManager;
@@ -177,7 +179,7 @@ mod tests {
         let fitness_calculator: StandardPopulationFit<TestPolicy> =
             StandardPopulationFit::new();
         let mut fit_results =
-            fitness_calculator.fit(population.clone(), &mut exec).unwrap();
+            fitness_calculator.fit::<Alternately>(population.clone(), &mut exec).unwrap();
         fit_results.sort_by_key(|v| v.1);
         assert_eq!(Arc::new(fit_results.into_iter().map(|(_, i)| i).collect::<Vec<_>>()), population);
     }

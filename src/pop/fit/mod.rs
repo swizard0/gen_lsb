@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use par_exec::Executor;
+use par_exec::{Executor, WorkAmount, JobIterBuild};
 
 pub mod standard;
 
@@ -13,5 +13,6 @@ pub trait PopulationFit {
     type Fits: Set<T = (Self::Fit, usize)>;
     type Err;
 
-    fn fit(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err>;
+    fn fit<WA>(&self, population: Arc<Self::Pop>, exec: &mut Self::Exec) -> Result<Self::Fits, Self::Err>
+        where WA: WorkAmount, <Self::Exec as Executor>::JIB: JobIterBuild<WA>;
 }

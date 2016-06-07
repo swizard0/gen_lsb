@@ -1,4 +1,4 @@
-use par_exec::Executor;
+use par_exec::{Executor, WorkAmount, JobIterBuild};
 
 pub mod limited;
 
@@ -10,5 +10,6 @@ pub trait PopulationInit {
     type Pop: Set<T = Self::Indiv>;
     type Err;
 
-    fn init(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err>;
+    fn init<WA>(&self, exec: &mut Self::Exec) -> Result<Self::Pop, Self::Err>
+        where WA: WorkAmount, <Self::Exec as Executor>::JIB: JobIterBuild<WA>;
 }
