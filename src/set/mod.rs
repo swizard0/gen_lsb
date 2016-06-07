@@ -20,7 +20,7 @@ pub trait SetManager {
     fn make_set(&mut self, size_hint: Option<usize>) -> Result<Self::S, Self::E>;
 
     fn reserve(&mut self, _set: &mut Self::S, _additional: usize) -> Result<(), Self::E> {
-        // default is to do nothing
+        // default action is to do nothing
         Ok(())
     }
 }
