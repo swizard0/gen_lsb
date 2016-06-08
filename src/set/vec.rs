@@ -1,6 +1,7 @@
 use std::vec::IntoIter;
 use std::marker::PhantomData;
 use super::{Set, SetManager};
+use super::sort::SortManager;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {
@@ -84,6 +85,22 @@ impl<T> SetManager for Manager<T> {
         Ok(set.reserve(additional))
     }
 }
+
+impl SortManager for Manager<usize> {
+    type S = Vec<usize>;
+    type E = ();
+
+    fn sort<SF>(&mut self, set: &mut Self::S, pred: SF) -> Result<(), Self::E> where SF: Fn(usize, usize) -> bool {
+        use std::cmp::Ordering;
+        set.sort_by(|&a, &b| if pred(a, b) {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        });
+        Ok(())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
